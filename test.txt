@@ -1,0 +1,11 @@
+int x := 1
+int y := 2
+volatile int returnvalue
+volatile boolean z := false
+if (x != y){
+	returnvalue := x + y
+	if (returnvalue = 3){
+		z := true
+	}
+	return z
+}
