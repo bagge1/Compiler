@@ -1,5 +1,10 @@
 #include <iostream>
 #include "parser.tab.hh"
+#include "symboltable.hh"
+#include "semanalysis.hh"
+#include "ir.hh"
+#include <chrono>
+#include <string>
 
 extern Node *root;
 extern FILE *yyin;
@@ -18,6 +23,10 @@ enum errCodes
 };
 
 int errCode = errCodes::SUCCESS;
+
+SymbolTable st;
+SemAnalysis semanalyzer;
+// IntermediateRepresentation ir;
 
 // Handling Syntax Errors
 void yy::parser::error(std::string const &err)
@@ -56,13 +65,25 @@ int main(int argc, char **argv)
 
 		if (parseSuccess && !lexical_errors)
 		{
-			printf("\nThe compiler successfuly generated a syntax tree for the given input! \n");
+			printf("\nThe compiler successfuly generated a syntax tree for the given input! \n\n");
 
-			printf("\nPrint Tree:  \n");
 			try
 			{
-				root->print_tree();
+				/* Symbol Table */ 
+				// st.build_st();
+				// st.printST();
+
+				/* Semantic Analysis */
+				semanalyzer.analyze();
+
+				/* AST */
+				// root->print_tree();
 				root->generate_tree();
+
+				/* Intermediate Representation */
+				// ir.generate_ir(root);
+				// ir.printTAC();
+				// ir.writeCFG();
 			}
 			catch (...)
 			{

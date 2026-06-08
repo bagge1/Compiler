@@ -1,0 +1,251 @@
+// ============================================================================
+//  aitest.cpm  --  Semantic-analysis regression test for the C+- compiler
+// ----------------------------------------------------------------------------
+//  Every line tagged  //@error  MUST emit a semantic error when this file is
+//  compiled; every other line MUST be accepted silently. The file is written
+//  to PARSE CLEANLY on purpose -- a lexical or syntax error aborts the front
+//  end before semantic analysis ever runs, so those categories are covered by
+//  the separate test_files/lexical_errors and test_files/syntax_errors suites.
+//
+//  Coverage (one section per check implemented in semanalysis.cc /
+//  symboltable.cc):
+//    1. Duplicate identifiers (class, field, method, parameter, local)
+//    2. Undefined types
+//    3. Assignment type checking + immutability (variable / parameter)
+//    4. Undeclared identifiers and use-before-definition
+//    5. Operator operand typing (numerical / boolean / comparison / not)
+//    6. Arrays (index type, indexing a non-array, .length on a non-array)
+//    7. Method calls (arity, argument types, unknown function / method)
+//    8. Conditions must be boolean
+//    9. Return-type matching, missing return, unreachable code
+// ============================================================================
+
+
+// ---------- 1. Duplicate identifiers --------------------------------------
+
+class Dup {
+}
+class Dup {                              //@error - duplicate class 'Dup'
+}
+
+// A well-formed helper class used by the method-call tests below.
+class Helper {
+  hv: int
+
+  getInt(): int {
+    return 1
+  }
+
+  getBool(): boolean {
+    return true
+  }
+}
+
+class Duplicates {
+  field: int
+  field: int                             //@error - duplicate field 'field' in class scope
+
+  dupMethod(): int {
+    return 1
+  }
+  dupMethod(): int {                     //@error - duplicate method 'dupMethod'
+    return 1
+  }
+
+  dupParam(p: int, p: int): int {        //@error - duplicate parameter 'p'
+    return 1
+  }
+
+  shadowParam(q: int): int {
+    q: int                               //@error - local 'q' duplicates parameter
+    return 1
+  }
+}
+
+
+// ---------- 2. Undefined types --------------------------------------------
+
+class Types {
+  ok: Helper
+  bad: NoSuchType                        //@error - field type 'NoSuchType' is undefined
+
+  badParam(p: AlsoMissing): void {       //@error - parameter type 'AlsoMissing' is undefined
+  }
+}
+
+
+// ---------- 3. Assignments & immutability ---------------------------------
+
+class Assignments {
+  notVolatile: int
+  volatile vInt: int
+  volatile vBool: boolean
+
+  immutableField(): void {
+    notVolatile := 5                     //@error - assignment to immutable variable
+  }
+
+  immutableParam(p: int): void {
+    p := 5                               //@error - assignment to immutable parameter
+  }
+
+  typeMismatch(): void {
+    volatile i: int
+    volatile b: boolean
+    i := b                               //@error - type mismatch: int := boolean
+    i := 10
+    b := true
+  }
+}
+
+
+// ---------- 4. Undeclared / use-before-definition -------------------------
+
+class Scoping {
+  useUndeclared(): void {
+    volatile x: int
+    x := missing                         //@error - undeclared identifier 'missing'
+  }
+
+  useBeforeDef(): void {
+    volatile early: int := later         //@error - 'later' used before it is defined
+    volatile filler1: int
+    volatile filler2: int
+    volatile later: int
+  }
+}
+
+
+// ---------- 5. Operator operand typing ------------------------------------
+
+class Operators {
+  volatile arr: int[]
+
+  numerical(): void {
+    volatile i: int
+    volatile b: boolean
+    i := 10 + b                          //@error - numerical operator on int + boolean
+    i := 1 + 2
+  }
+
+  booleanOps(): void {
+    volatile b: boolean
+    b := b & arr                         //@error - boolean operator on boolean & int[]
+    b := b & b
+    b := 1 & 2
+  }
+
+  comparison(): void {
+    volatile b: boolean
+    b := b < b                           //@error - comparison operator on boolean < boolean
+    b := 1 < 2
+  }
+
+  notOp(): void {
+    volatile i: int
+    volatile b: boolean
+    b := !i                              //@error - '!' applied to non-boolean
+    b := !b
+  }
+}
+
+
+// ---------- 6. Arrays ------------------------------------------------------
+
+class Arrays {
+  volatile arr: int[]
+
+  indexType(): void {
+    volatile i: int
+    i := arr[false]                      //@error - array index must be int, got boolean
+    i := arr[0]
+  }
+
+  indexNonArray(): void {
+    volatile i: int
+    i := i[0]                            //@error - indexing a non-array value
+  }
+
+  lengthOnScalar(): void {
+    volatile i: int
+    i := i.length                        //@error - .length on a non-array value
+    i := arr.length
+  }
+}
+
+
+// ---------- 7. Method calls -----------------------------------------------
+
+class Calls {
+  volatile helper: Helper
+
+  target(x: int, y: boolean): int {
+    return 1
+  }
+
+  arity(): void {
+    volatile r: int
+    r := target(1)                       //@error - wrong number of arguments
+    r := target(1, true)
+  }
+
+  argTypes(): void {
+    volatile r: int
+    r := target(true, 1)                 //@error - wrong argument types
+    r := target(1, false)
+  }
+
+  unknownFunction(): void {
+    volatile r: int
+    r := noSuchFunction()                //@error - function does not exist in scope
+  }
+
+  unknownMethod(): void {
+    volatile r: int
+    r := helper.noSuchMethod()           //@error - method does not exist in class 'Helper'
+    r := helper.getInt()
+  }
+}
+
+
+// ---------- 8. Conditions must be boolean ---------------------------------
+
+class Conditions {
+  badIf(): void {
+    volatile i: int
+    if (i) {                             //@error - if condition must be boolean
+      i := 1
+    }
+    if (i < 1) {
+      i := 2
+    }
+  }
+}
+
+
+// ---------- 9. Returns & unreachable code ---------------------------------
+
+class Returns {
+  wrongReturnType(): boolean {
+    return 1                             //@error - return type: expected boolean, got int
+  }
+
+  missingReturn(): int {                 //@error - missing return in non-void method
+    volatile i: int
+    i := 1
+  }
+
+  unreachable(): int {
+    return 1
+    return 2                             //@error - unreachable statement after return
+  }
+}
+
+
+// ---------- Entry point ----------------------------------------------------
+// main does not need to invoke the classes above: semantic analysis walks
+// every declaration regardless of whether it is called.
+
+main(): int {
+  return 0
+}
