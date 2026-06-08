@@ -1,0 +1,71 @@
+class QS {
+
+  volatile number : int[]
+  volatile size : int
+
+  Sort(left : int, right : int): int {
+    volatile i : int
+    volatile j : int
+    volatile pivot : int
+    volatile temp : int
+
+    if (left < right) {
+
+      pivot := number[right]
+      i := left
+      j := left
+
+      for ( , j < right , j := j + 1 ) {
+        if (number[j] < pivot) {
+          temp := number[i]
+          number[i] := number[j]
+          number[j] := temp
+          i := i + 1
+        }
+      }
+
+      temp := number[i]
+      number[i] := number[right]
+      number[right] := temp
+
+      Sort(left, i - 1)
+      Sort(i + 1, right)
+    }
+
+    return 0
+  }
+
+  Print(): int {
+    volatile i : int
+    for ( i := 0 , i < size , i := i + 1 ) {
+      print(number[i])
+    }
+    return 0
+  }
+
+  Init(): int {
+    number := int[20,7,12,18,2,11,6,9,19,5]
+    size := number.length
+    return 0
+  }
+
+  Start(): int {
+    volatile r : int
+
+    r := Init()
+    r := Print()
+    print(9999)
+
+    r := Sort(0, size - 1)
+
+    r := Print()
+    return 0
+  }
+}
+
+main(): int {
+  volatile qs : QS := QS()
+  volatile r : int := qs.Start()
+  print(r)
+  return 0
+}

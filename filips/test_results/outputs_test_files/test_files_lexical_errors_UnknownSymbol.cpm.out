@@ -1,0 +1,6 @@
+Lexical errors found! See the logs below: 
+	@error at line 2. Character " is not recognized
+	@error at line 2. Character " is not recognized
+	@error at line 3. Character % is not recognized
+	@error at line 4. Character $ is not recognized
+	@error at line 5. Character @ is not recognized

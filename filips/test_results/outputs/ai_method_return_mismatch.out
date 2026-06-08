@@ -1,0 +1,31 @@
+Printing tree
+Scope Program: Symbols:  Symbol(name: C, type: C, id_type:Class, scope: 0, Declared at line: 2) Symbol(name: main, type: int, id_type:MainEntry, scope: 0, Declared at line: 7)
+  |Scope Class:C Symbols:  Symbol(name: f, type: int, id_type:Method, scope: 1, Declared at line: 2)
+  |  |Scope Method:f Symbols: 
+  |Scope MainEntry:main Symbols: 
+
+Built a parse-tree at st_tree.dot. Use 'make st_tree' to generate the pdf version.
+
+The compiler successfuly generated a syntax tree for the given input! 
+
+Print Tree:  
+Program:
+  programArgs:
+    Class:C
+      ClassArgs:
+        Method:f
+          methodType:
+            IntType:int
+          NoArgs:
+          StatementBlock:
+            ReturnStatement:return
+              Boolean:true
+  MainEntry:main
+    StatementBlock:
+      ReturnStatement:return
+        Int:0
+
+Built a parse-tree at tree.dot. Use 'make tree' to generate the pdf version.
+
+Doing Semantic analysis:  
+Method is of type "int" but the return is of type "BoolType" line:4

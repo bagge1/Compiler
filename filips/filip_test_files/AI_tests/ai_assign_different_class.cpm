@@ -1,0 +1,8 @@
+class A {}
+class B {}
+
+main(): int {
+  x: A
+  x := B() //@error - semantic (types dont match! one is type "A" and the other is type "B")
+  return 0
+}

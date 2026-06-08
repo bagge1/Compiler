@@ -1,0 +1,16 @@
+
+
+
+main(): int{
+    if(true){
+        volatile i: int := 3
+        if(false){
+            foo:boolean := !true
+        }
+        for(i:int,i<10,i := i+1){
+            print(i)
+        }
+    }
+}
+
+

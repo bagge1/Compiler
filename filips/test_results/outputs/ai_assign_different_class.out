@@ -1,0 +1,34 @@
+Printing tree
+Scope Program: Symbols:  Symbol(name: A, type: A, id_type:Class, scope: 0, Declared at line: 1) Symbol(name: B, type: B, id_type:Class, scope: 0, Declared at line: 2) Symbol(name: main, type: int, id_type:MainEntry, scope: 0, Declared at line: 4)
+  |Scope Class:A Symbols: 
+  |Scope Class:B Symbols: 
+  |Scope MainEntry:main Symbols:  Symbol(name: x, type: A, id_type:Variable, scope: 3, Declared at line: 5)
+
+Built a parse-tree at st_tree.dot. Use 'make st_tree' to generate the pdf version.
+
+The compiler successfuly generated a syntax tree for the given input! 
+
+Print Tree:  
+Program:
+  programArgs:
+    Class:A
+      ClassArgs:
+    Class:B
+      ClassArgs:
+  MainEntry:main
+    StatementBlock:
+      VarDeclareStatement:
+        Variable:x
+          TypeExpression:A
+          NoExpression:
+      AssignStatement::=
+        Id:x
+        FunctionCallExpression:B
+          NoArgs:
+      ReturnStatement:return
+        Int:0
+
+Built a parse-tree at tree.dot. Use 'make tree' to generate the pdf version.
+
+Doing Semantic analysis:  
+types dont match! one is type "A" and the other is type "B". line:6

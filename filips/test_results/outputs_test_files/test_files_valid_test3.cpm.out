@@ -1,0 +1,54 @@
+Printing tree
+Scope Program: Symbols:  Symbol(name: main, type: int, id_type:MainEntry, scope: 0, Declared at line: 1)
+  |Scope MainEntry:main Symbols:  Symbol(name: n, type: int, id_type:Variable, scope: 1, Declared at line: 2) Symbol(name: x, type: int, id_type:Variable, scope: 1, Declared at line: 5) Symbol(name: i, type: int, id_type:Variable, scope: 1, Declared at line: 6)
+  |  |Scope ForStatement:for Symbols: 
+
+Built a parse-tree at st_tree.dot. Use 'make st_tree' to generate the pdf version.
+
+The compiler successfuly generated a syntax tree for the given input! 
+
+Print Tree:  
+Program:
+  programArgs:
+  MainEntry:main
+    StatementBlock:
+      VarDeclareStatement:
+        Variable:n
+          IntType:int
+          NoExpression:
+      ReadStatement:read
+        Id:n
+      VarDeclareStatement:
+        Variable:x
+          IntType:int
+          Int:1
+      VarDeclareStatement:
+        Variable:i
+          IntType:int
+          Int:2
+      ForStatement:for
+        AssignStatement:
+          Id:i
+          Int:2
+        LessOrEqExpression:<=
+          Id:i
+          Id:n
+        AssignStatement::=
+          Id:i
+          AddExpression:+
+            Id:i
+            Int:1
+        StatementBlock:
+          AssignStatement::=
+            Id:x
+            MultExpression:*
+              Id:x
+              Id:i
+      PrintStatement:print
+        Id:x
+      ReturnStatement:return
+        Int:0
+
+Built a parse-tree at tree.dot. Use 'make tree' to generate the pdf version.
+
+Doing Semantic analysis:  

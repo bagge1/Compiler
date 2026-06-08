@@ -1,0 +1,3 @@
+Syntax errors found! See the logs below:
+	@error at line 3. Cannot generate a syntax for this input:syntax error, unexpected INT_TYPE, expecting SBL
+End of syntax errors!

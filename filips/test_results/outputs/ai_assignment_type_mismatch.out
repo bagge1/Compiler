@@ -1,0 +1,27 @@
+Printing tree
+Scope Program: Symbols:  Symbol(name: main, type: int, id_type:MainEntry, scope: 0, Declared at line: 1)
+  |Scope MainEntry:main Symbols:  Symbol(name: a, type: int, id_type:Variable, scope: 1, Declared at line: 2)
+
+Built a parse-tree at st_tree.dot. Use 'make st_tree' to generate the pdf version.
+
+The compiler successfuly generated a syntax tree for the given input! 
+
+Print Tree:  
+Program:
+  programArgs:
+  MainEntry:main
+    StatementBlock:
+      VarDeclareStatement:
+        Variable:a
+          IntType:int
+          NoExpression:
+      AssignStatement::=
+        Id:a
+        Boolean:true
+      ReturnStatement:return
+        Int:0
+
+Built a parse-tree at tree.dot. Use 'make tree' to generate the pdf version.
+
+Doing Semantic analysis:  
+types dont match! one is type "IntType" and the other is type "BoolType". line:3

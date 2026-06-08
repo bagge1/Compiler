@@ -1,0 +1,28 @@
+
+main(): int{
+    if(true){
+        volatile i: int := 3
+        volatile data : int[] := int[3, 1, 4, 1, 5]
+        print(data)
+
+        volatile fake : int[] := data
+
+        print(fake)
+        fake[0] := 10000
+
+        print(data)
+        if(false){
+            foo:boolean := !(i = data[0])
+        }
+        for(,i<10,i := i+1){
+            print(i)
+        }
+        print(data.length)
+    }else{
+        print(i)
+
+    }
+    return 0
+}
+
+

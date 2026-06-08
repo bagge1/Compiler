@@ -1,0 +1,7 @@
+//@error - semantic (invalid return type: expected int, got boolean)
+//@error - semantic (invalid return type: expected int, got int[])
+//@error - semantic (invalid return type: expected boolean, got int)
+//@error - semantic (invalid return type: expected boolean, got int[] from zxFunc)
+//@error - semantic (invalid return type: expected int[], got int)
+//@error - semantic (invalid return type: expected int[], got boolean from yxFunc)
+//@error - semantic (invalid array index type in return: expected int, got boolean)

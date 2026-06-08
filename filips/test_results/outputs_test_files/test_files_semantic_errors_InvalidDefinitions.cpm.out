@@ -1,0 +1,296 @@
+Printing tree
+Scope Program: Symbols:  Symbol(name: MyClass, type: MyClass, id_type:Class, scope: 0, Declared at line: 2) Symbol(name: thatdoExist, type: thatdoExist, id_type:Class, scope: 0, Declared at line: 62) Symbol(name: classdata, type: classdata, id_type:Class, scope: 0, Declared at line: 66) Symbol(name: VarUsedBeforeDefinition, type: VarUsedBeforeDefinition, id_type:Class, scope: 0, Declared at line: 87) Symbol(name: main, type: int, id_type:MainEntry, scope: 0, Declared at line: 100)
+  |Scope Class:MyClass Symbols:  Symbol(name: a, type: int, id_type:Variable, scope: 1, Declared at line: 2) Symbol(name: b, type: boolean, id_type:Variable, scope: 1, Declared at line: 3) Symbol(name: c, type: intArray, id_type:ArrayExpression, scope: 1, Declared at line: 4) Symbol(name: d, type: classdata, id_type:Variable, scope: 1, Declared at line: 5) Symbol(name: aFunc, type: int, id_type:Method, scope: 1, Declared at line: 7) Symbol(name: bFunc, type: boolean, id_type:Method, scope: 1, Declared at line: 16) Symbol(name: cFunc, type: intArray, id_type:Method, scope: 1, Declared at line: 29) Symbol(name: dFunc, type: classdata, id_type:Method, scope: 1, Declared at line: 35) Symbol(name: EFUNC, type: boolean, id_type:Method, scope: 1, Declared at line: 44)
+  |  |Scope Method:aFunc Symbols: 
+  |  |Scope Method:bFunc Symbols: 
+  |  |Scope Method:cFunc Symbols: 
+  |  |Scope Method:dFunc Symbols: 
+  |  |Scope Method:EFUNC Symbols: 
+  |Scope Class:thatdoExist Symbols:  Symbol(name: a, type: int, id_type:Variable, scope: 7, Declared at line: 62)
+  |Scope Class:classdata Symbols:  Symbol(name: x, type: int, id_type:Variable, scope: 8, Declared at line: 66) Symbol(name: y, type: boolean, id_type:Variable, scope: 8, Declared at line: 67) Symbol(name: z, type: intArray, id_type:ArrayExpression, scope: 8, Declared at line: 68) Symbol(name: pem, type: classthatdoesntExist, id_type:Variable, scope: 8, Declared at line: 70) Symbol(name: pen, type: thatdoExist, id_type:Variable, scope: 8, Declared at line: 71) Symbol(name: xFunc, type: int, id_type:Method, scope: 8, Declared at line: 73) Symbol(name: yFunc, type: boolean, id_type:Method, scope: 8, Declared at line: 77) Symbol(name: zFunc, type: intArray, id_type:Method, scope: 8, Declared at line: 81)
+  |  |Scope Method:xFunc Symbols: 
+  |  |Scope Method:yFunc Symbols: 
+  |  |Scope Method:zFunc Symbols: 
+  |Scope Class:VarUsedBeforeDefinition Symbols:  Symbol(name: a, type: int, id_type:Variable, scope: 12, Declared at line: 87) Symbol(name: b, type: int, id_type:Method, scope: 12, Declared at line: 89)
+  |  |Scope Method:b Symbols:  Symbol(name: p, type: int, id_type:Variable, scope: 13, Declared at line: 89) Symbol(name: c, type: int, id_type:Variable, scope: 13, Declared at line: 94)
+  |Scope MainEntry:main Symbols: 
+
+Built a parse-tree at st_tree.dot. Use 'make st_tree' to generate the pdf version.
+
+The compiler successfuly generated a syntax tree for the given input! 
+
+Print Tree:  
+Program:
+  programArgs:
+    Class:MyClass
+      ClassArgs:
+        Variable:a
+          IntType:int
+          NoExpression:
+        Variable:b
+          BoolType:boolean
+          NoExpression:
+        Variable:c
+          ArrayExpression:int
+          NoExpression:
+        Variable:d
+          TypeExpression:classdata
+          NoExpression:
+        Method:aFunc
+          methodType:
+            IntType:int
+          NoArgs:
+          StatementBlock:
+            AssignStatement::=
+              Id:e
+              Id:a
+            AssignStatement::=
+              Id:a
+              MethodCallExpression:yFunc
+                Id:d
+                NoArgs:
+            AssignStatement::=
+              Id:a
+              MethodCallExpression:zFunc
+                Id:d
+                NoArgs:
+            ReturnStatement:return
+              Id:a
+        Method:bFunc
+          methodType:
+            BoolType:boolean
+          NoArgs:
+          StatementBlock:
+            AssignStatement::=
+              Id:b
+              MethodCallExpression:zzFunc
+                Id:d
+                NoArgs:
+            AssignStatement::=
+              Id:a
+              MethodCallExpression:xFunc
+                Id:d
+                NoArgs:
+            AssignStatement::=
+              Id:b
+              FunctionCallExpression:zFunc
+                NoArgs:
+            AssignStatement::=
+              Id:b
+              FunctionCallExpression:aFunc
+                NoArgs:
+            AssignStatement::=
+              Id:b
+              MethodCallExpression:xFunc
+                Id:d
+                NoArgs:
+            AssignStatement::=
+              Id:b
+              MethodCallExpression:zFunc
+                Id:d
+                NoArgs:
+            ReturnStatement:return
+              Id:b
+        Method:cFunc
+          methodType:
+            ArrayExpression:int
+          NoArgs:
+          StatementBlock:
+            AssignStatement::=
+              Id:c
+              MethodCallExpression:xFunc
+                Id:d
+                NoArgs:
+            AssignStatement::=
+              Id:c
+              MethodCallExpression:yFunc
+                Id:d
+                NoArgs:
+            ReturnStatement:return
+              Id:c
+        Method:dFunc
+          methodType:
+            TypeExpression:classdata
+          NoArgs:
+          StatementBlock:
+            AssignStatement::=
+              Id:d
+              MethodCallExpression:xFunc
+                Id:d
+                NoArgs:
+            AssignStatement::=
+              Id:d
+              MethodCallExpression:yFunc
+                Id:d
+                NoArgs:
+            AssignStatement::=
+              Id:d
+              MethodCallExpression:zFunc
+                Id:d
+                NoArgs:
+            AssignStatement::=
+              Id:d
+              Id:d
+            ReturnStatement:return
+              Id:d
+        Method:EFUNC
+          methodType:
+            BoolType:boolean
+          NoArgs:
+          StatementBlock:
+            AssignStatement::=
+              Id:a
+              Id:b
+            AssignStatement::=
+              Id:a
+              Id:c
+            AssignStatement::=
+              Id:a
+              Id:d
+            AssignStatement::=
+              Id:b
+              Id:a
+            AssignStatement::=
+              Id:b
+              Id:c
+            AssignStatement::=
+              Id:b
+              Id:d
+            AssignStatement::=
+              Id:c
+              Id:a
+            AssignStatement::=
+              Id:c
+              Id:b
+            AssignStatement::=
+              Id:c
+              Id:d
+            ReturnStatement:return
+              Boolean:false
+    Class:thatdoExist
+      ClassArgs:
+        Variable:a
+          IntType:int
+          NoExpression:
+    Class:classdata
+      ClassArgs:
+        Variable:x
+          IntType:int
+          NoExpression:
+        Variable:y
+          BoolType:boolean
+          NoExpression:
+        Variable:z
+          ArrayExpression:int
+          NoExpression:
+        Variable:pem
+          TypeExpression:classthatdoesntExist
+          NoExpression:
+        Variable:pen
+          TypeExpression:thatdoExist
+          NoExpression:
+        Method:xFunc
+          methodType:
+            IntType:int
+          NoArgs:
+          StatementBlock:
+            ReturnStatement:return
+              Id:x
+        Method:yFunc
+          methodType:
+            BoolType:boolean
+          NoArgs:
+          StatementBlock:
+            ReturnStatement:return
+              Id:y
+        Method:zFunc
+          methodType:
+            ArrayExpression:int
+          NoArgs:
+          StatementBlock:
+            ReturnStatement:return
+              Id:z
+    Class:VarUsedBeforeDefinition
+      ClassArgs:
+        Variable:a
+          IntType:int
+          NoExpression:
+        Method:b
+          methodType:
+            IntType:int
+          methodArgs:
+            Variable:p
+              IntType:int
+          StatementBlock:
+            AssignStatement::=
+              Id:a
+              Int:10
+            AssignStatement::=
+              Id:p
+              Int:10
+            AssignStatement::=
+              Id:c
+              Int:11
+            VarDeclareStatement:
+              Variable:c
+                IntType:int
+                NoExpression:
+            ReturnStatement:return
+              Id:a
+  MainEntry:main
+    StatementBlock:
+      PrintStatement:print
+        MethodCallExpression:aFunc
+          FunctionCallExpression:MyClass
+            NoArgs:
+          NoArgs:
+      PrintStatement:print
+        MethodCallExpression:bFunc
+          FunctionCallExpression:MyClass
+            NoArgs:
+          NoArgs:
+      PrintStatement:print
+        MethodCallExpression:cFunc
+          FunctionCallExpression:MyClass
+            NoArgs:
+          NoArgs:
+      PrintStatement:print
+        MethodCallExpression:dFunc
+          FunctionCallExpression:MyClass
+            NoArgs:
+          NoArgs:
+      PrintStatement:print
+        MethodCallExpression:EFUNC
+          FunctionCallExpression:MyClass
+            NoArgs:
+          NoArgs:
+      ReturnStatement:return
+        Int:0
+
+Built a parse-tree at tree.dot. Use 'make tree' to generate the pdf version.
+
+Doing Semantic analysis:  
+ERROR: Identifier: "e" Not defined in this scope! line:8
+types dont match! one is type "TypeError" and the other is type "IntType". line:8
+types dont match! one is type "IntType" and the other is type "BoolType". line:10
+types dont match! one is type "IntType" and the other is type "IntTypeArray". line:11
+Could find Class "classdata"! or Could not find method "zzFunc" in Class "classdata" ! line:17
+Cannot find "zFunc" in this scope! line:20
+types dont match! one is type "BoolType" and the other is type "IntType". line:22
+types dont match! one is type "BoolType" and the other is type "IntType". line:23
+types dont match! one is type "BoolType" and the other is type "IntTypeArray". line:24
+Cannot assign an "IntType" array to a "IntType"! line:30
+Cannot assign an "IntType" array to a "BoolType"! line:31
+types dont match! one is type "classdata" and the other is type "IntType". line:36
+types dont match! one is type "classdata" and the other is type "BoolType". line:37
+types dont match! one is type "classdata" and the other is type "IntTypeArray". line:38
+types dont match! one is type "IntType" and the other is type "BoolType". line:45
+types dont match! one is type "IntType" and the other is type "IntTypeArray". line:46
+types dont match! one is type "IntType" and the other is type "classdata". line:47
+types dont match! one is type "BoolType" and the other is type "IntType". line:49
+types dont match! one is type "BoolType" and the other is type "IntTypeArray". line:50
+types dont match! one is type "BoolType" and the other is type "classdata". line:51
+Cannot assign an "IntType" array to a "IntType"! line:53
+Cannot assign an "IntType" array to a "BoolType"! line:54
+Cannot assign an "IntType" array to a "classdata"! line:55
+Could not find Class "classthatdoesntExist" in scope! line:70

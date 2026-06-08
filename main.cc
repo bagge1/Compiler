@@ -26,7 +26,7 @@ int errCode = errCodes::SUCCESS;
 
 SymbolTable st;
 SemAnalysis semanalyzer;
-// IntermediateRepresentation ir;
+IntermediateRepresentation ir;
 
 // Handling Syntax Errors
 void yy::parser::error(std::string const &err)
@@ -81,9 +81,10 @@ int main(int argc, char **argv)
 				root->generate_tree();
 
 				/* Intermediate Representation */
-				// ir.generate_ir(root);
-				// ir.printTAC();
-				// ir.writeCFG();
+				ir.generate_ir(root);
+				ir.printTAC();
+				string cfgFile = "IR_tree.dot";
+				ir.writeCFG(cfgFile);
 			}
 			catch (...)
 			{

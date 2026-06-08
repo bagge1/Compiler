@@ -1,0 +1,19 @@
+main(): int{
+    a:int
+    c:int[] := int[1,2,3,4]
+    f:boolean := (3 = 5) | ( a > 10)
+    a := 23
+    b:int := 2 + a
+    for(i:int := 0, i < 10, i := i + 1){
+        a := a * i
+        if(a <= i){
+            continue
+        }
+        print(i)
+    }
+    print(a)
+    theend:boolean := true
+    return 0
+}
+
+

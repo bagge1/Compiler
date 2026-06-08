@@ -1,0 +1,38 @@
+
+
+main(): int{
+    volatile a:int := 1
+    b:int[] := int[1,2,3,4]
+    a := b[0]
+
+    volatile d:int[] := int[0,0,0,0]
+
+    print(d)
+    print(b)
+
+    for(volatile i:int := 0, i < d.length, i := i + 1){
+        d[i] := b[i]
+    }
+
+    print(d)
+
+    d[0] := 3
+
+    print(d)
+
+    1 + 2 := 4
+
+    for(volatile i:int := 0, i < b.length, i := i + 1){
+        for(volatile j:int := 0, j < b.length, j := j + 1){
+            print(j)
+
+            if(j > 5){
+                break
+            }
+        }
+        print(a)
+    }
+    
+    
+    return 0
+}

@@ -1,0 +1,156 @@
+Printing tree
+Scope Program: Symbols:  Symbol(name: Calculator, type: Calculator, id_type:Class, scope: 0, Declared at line: 3) Symbol(name: Counter, type: Counter, id_type:Class, scope: 0, Declared at line: 16) Symbol(name: main, type: int, id_type:MainEntry, scope: 0, Declared at line: 31)
+  |Scope Class:Calculator Symbols:  Symbol(name: sumArray, type: int, id_type:Method, scope: 1, Declared at line: 3)
+  |  |Scope Method:sumArray Symbols:  Symbol(name: values, type: intArray, id_type:ArrayExpression, scope: 2, Declared at line: 3) Symbol(name: i, type: int, id_type:Variable, scope: 2, Declared at line: 4) Symbol(name: total, type: int, id_type:Variable, scope: 2, Declared at line: 5)
+  |  |  |Scope ForStatement:for Symbols: 
+  |Scope Class:Counter Symbols:  Symbol(name: value, type: int, id_type:Variable, scope: 4, Declared at line: 16) Symbol(name: init, type: void, id_type:Method, scope: 4, Declared at line: 18) Symbol(name: inc, type: void, id_type:Method, scope: 4, Declared at line: 22) Symbol(name: get, type: int, id_type:Method, scope: 4, Declared at line: 26)
+  |  |Scope Method:init Symbols:  Symbol(name: v, type: int, id_type:Variable, scope: 5, Declared at line: 18)
+  |  |Scope Method:inc Symbols: 
+  |  |Scope Method:get Symbols: 
+  |Scope MainEntry:main Symbols:  Symbol(name: data, type: intArray, id_type:ArrayExpression, scope: 8, Declared at line: 32) Symbol(name: sum, type: int, id_type:Variable, scope: 8, Declared at line: 33) Symbol(name: c, type: Counter, id_type:Variable, scope: 8, Declared at line: 37) Symbol(name: i, type: int, id_type:Variable, scope: 8, Declared at line: 40)
+  |  |Scope ForStatement:for Symbols: 
+
+Built a parse-tree at st_tree.dot. Use 'make st_tree' to generate the pdf version.
+
+The compiler successfuly generated a syntax tree for the given input! 
+
+Print Tree:  
+Program:
+  programArgs:
+    Class:Calculator
+      ClassArgs:
+        Method:sumArray
+          methodType:
+            IntType:int
+          methodArgs:
+            Variable:values
+              ArrayExpression:int
+          StatementBlock:
+            VarDeclareStatement:
+              Variable:i
+                IntType:int
+                Int:0
+            VarDeclareStatement:
+              Variable:total
+                IntType:int
+                Int:0
+            ForStatement:for
+              AssignStatement:
+                Id:i
+                Int:0
+              LessExpression:<
+                Id:i
+                lengthExpression:
+                  Id:values
+              AssignStatement::=
+                Id:i
+                AddExpression:+
+                  Id:i
+                  Int:1
+              StatementBlock:
+                AssignStatement::=
+                  Id:total
+                  AddExpression:+
+                    Id:total
+                    ArrayIndexExpression:
+                      Id:values
+                      Id:i
+            ReturnStatement:return
+              Id:total
+    Class:Counter
+      ClassArgs:
+        Variable:value
+          IntType:int
+          NoExpression:
+        Method:init
+          methodType:
+            VoidType:void
+          methodArgs:
+            Variable:v
+              IntType:int
+          StatementBlock:
+            AssignStatement::=
+              Id:value
+              Id:v
+        Method:inc
+          methodType:
+            VoidType:void
+          NoArgs:
+          StatementBlock:
+            AssignStatement::=
+              Id:value
+              AddExpression:+
+                Id:value
+                Int:1
+        Method:get
+          methodType:
+            IntType:int
+          NoArgs:
+          StatementBlock:
+            ReturnStatement:return
+              Id:value
+  MainEntry:main
+    StatementBlock:
+      VarDeclareStatement:
+        Variable:data
+          ArrayExpression:int
+          ArrayCreationExpression:
+            IntType:int
+            CommaArgs:
+              Int:3
+              Int:1
+              Int:4
+              Int:1
+              Int:5
+      VarDeclareStatement:
+        Variable:sum
+          IntType:int
+          MethodCallExpression:sumArray
+            FunctionCallExpression:Calculator
+              NoArgs:
+            CommaArgs:
+              Id:data
+      PrintStatement:print
+        Id:sum
+      VarDeclareStatement:
+        Variable:c
+          TypeExpression:Counter
+          FunctionCallExpression:Counter
+            NoArgs:
+      ExpressionStatement:
+        MethodCallExpression:init
+          Id:c
+          CommaArgs:
+            Int:0
+      VarDeclareStatement:
+        Variable:i
+          IntType:int
+          Int:0
+      ForStatement:for
+        AssignStatement:
+          Id:i
+          Int:0
+        LessExpression:<
+          Id:i
+          lengthExpression:
+            Id:data
+        AssignStatement::=
+          Id:i
+          AddExpression:+
+            Id:i
+            Int:1
+        StatementBlock:
+          ExpressionStatement:
+            MethodCallExpression:inc
+              Id:c
+              NoArgs:
+      PrintStatement:print
+        MethodCallExpression:get
+          Id:c
+          NoArgs:
+      ReturnStatement:return
+        Int:0
+
+Built a parse-tree at tree.dot. Use 'make tree' to generate the pdf version.
+
+Doing Semantic analysis:  

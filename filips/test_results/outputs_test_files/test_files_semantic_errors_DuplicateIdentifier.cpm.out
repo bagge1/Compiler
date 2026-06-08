@@ -1,0 +1,105 @@
+Printing tree
+ERROR: Variable(name: a, type: int, id_type:Variable, scope: 1, Declared at line: 3) name already declared at Variable(name: a, type: int, id_type:Variable, scope: 1, Declared at line: 2)
+ERROR: Variable(name: b, type: boolean, id_type:Variable, scope: 5, Declared at line: 19) name already declared at Variable(name: b, type: boolean, id_type:Variable, scope: 5, Declared at line: 18)
+ERROR: Variable(name: param, type: int, id_type:Variable, scope: 6, Declared at line: 21) name already declared at Variable(name: param, type: int, id_type:Variable, scope: 6, Declared at line: 21)
+ERROR: Variable(name: param, type: int, id_type:Variable, scope: 7, Declared at line: 26) name already declared at Variable(name: param, type: int, id_type:Variable, scope: 7, Declared at line: 25)
+Scope Program: Symbols:  Symbol(name: DuplicateIdentifiers, type: DuplicateIdentifiers, id_type:Class, scope: 0, Declared at line: 2) Symbol(name: DuplicateIdentifiers, type: DuplicateIdentifiers, id_type:Class, scope: 0, Declared at line: 15) Symbol(name: MyClass, type: MyClass, id_type:Class, scope: 0, Declared at line: 18) Symbol(name: main, type: int, id_type:MainEntry, scope: 0, Declared at line: 31)
+  |Scope Class:DuplicateIdentifiers Symbols:  Symbol(name: a, type: int, id_type:Variable, scope: 1, Declared at line: 2) Symbol(name: a, type: int, id_type:Variable, scope: 1, Declared at line: 3) Symbol(name: func, type: boolean, id_type:Method, scope: 1, Declared at line: 5) Symbol(name: func, type: int, id_type:Method, scope: 1, Declared at line: 9)
+  |  |Scope Method:func Symbols: 
+  |  |Scope Method:func Symbols: 
+  |Scope Class:DuplicateIdentifiers Symbols: 
+  |Scope Class:MyClass Symbols:  Symbol(name: b, type: boolean, id_type:Variable, scope: 5, Declared at line: 18) Symbol(name: b, type: boolean, id_type:Variable, scope: 5, Declared at line: 19) Symbol(name: Pen, type: int, id_type:Method, scope: 5, Declared at line: 21) Symbol(name: Pen2, type: int, id_type:Method, scope: 5, Declared at line: 25)
+  |  |Scope Method:Pen Symbols:  Symbol(name: param, type: int, id_type:Variable, scope: 6, Declared at line: 21) Symbol(name: param, type: int, id_type:Variable, scope: 6, Declared at line: 21)
+  |  |Scope Method:Pen2 Symbols:  Symbol(name: param, type: int, id_type:Variable, scope: 7, Declared at line: 25) Symbol(name: param, type: int, id_type:Variable, scope: 7, Declared at line: 26)
+  |Scope MainEntry:main Symbols: 
+
+Built a parse-tree at st_tree.dot. Use 'make st_tree' to generate the pdf version.
+
+The compiler successfuly generated a syntax tree for the given input! 
+
+Print Tree:  
+Program:
+  programArgs:
+    Class:DuplicateIdentifiers
+      ClassArgs:
+        Variable:a
+          IntType:int
+          NoExpression:
+        Variable:a
+          IntType:int
+          NoExpression:
+        Method:func
+          methodType:
+            BoolType:boolean
+          NoArgs:
+          StatementBlock:
+            ReturnStatement:return
+              Boolean:true
+        Method:func
+          methodType:
+            IntType:int
+          NoArgs:
+          StatementBlock:
+            ReturnStatement:return
+              Int:1
+    Class:DuplicateIdentifiers
+      ClassArgs:
+    Class:MyClass
+      ClassArgs:
+        Variable:b
+          BoolType:boolean
+          NoExpression:
+        Variable:b
+          BoolType:boolean
+          NoExpression:
+        Method:Pen
+          methodType:
+            IntType:int
+          methodArgs:
+            Variable:param
+              IntType:int
+            Variable:param
+              IntType:int
+          StatementBlock:
+            ReturnStatement:return
+              Int:1
+        Method:Pen2
+          methodType:
+            IntType:int
+          methodArgs:
+            Variable:param
+              IntType:int
+          StatementBlock:
+            VarDeclareStatement:
+              Variable:param
+                IntType:int
+                NoExpression:
+            ReturnStatement:return
+              Int:1
+  MainEntry:main
+    StatementBlock:
+      PrintStatement:print
+        MethodCallExpression:func
+          FunctionCallExpression:DuplicateIdentifiers
+            NoArgs:
+          NoArgs:
+      PrintStatement:print
+        MethodCallExpression:Pen
+          FunctionCallExpression:MyClass
+            NoArgs:
+          CommaArgs:
+            Int:1
+            Int:2
+      PrintStatement:print
+        MethodCallExpression:Pen2
+          FunctionCallExpression:MyClass
+            NoArgs:
+          CommaArgs:
+            Int:3
+      ReturnStatement:return
+        Int:0
+
+Built a parse-tree at tree.dot. Use 'make tree' to generate the pdf version.
+
+Doing Semantic analysis:  
+Method is of type "boolean" but the return is of type "IntType" line:11

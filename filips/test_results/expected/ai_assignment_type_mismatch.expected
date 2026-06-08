@@ -1,0 +1,2 @@
+//@error - semantic (types dont match! one is type "IntType" and the other is type "BoolType")
+1) types dont match! one is type "IntType" and the other is type "BoolType"

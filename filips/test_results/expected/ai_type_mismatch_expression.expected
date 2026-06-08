@@ -1,0 +1,2 @@
+//@error - semantic (Numeric operation between "IntType" and "BoolType" is not allowed!)
+1) Numeric operation between "IntType" and "BoolType" is not allowed!

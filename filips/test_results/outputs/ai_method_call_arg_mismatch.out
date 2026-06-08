@@ -1,0 +1,43 @@
+Printing tree
+Scope Program: Symbols:  Symbol(name: C, type: C, id_type:Class, scope: 0, Declared at line: 2) Symbol(name: main, type: int, id_type:MainEntry, scope: 0, Declared at line: 7)
+  |Scope Class:C Symbols:  Symbol(name: add, type: int, id_type:Method, scope: 1, Declared at line: 2)
+  |  |Scope Method:add Symbols:  Symbol(name: a, type: int, id_type:Variable, scope: 2, Declared at line: 2) Symbol(name: b, type: int, id_type:Variable, scope: 2, Declared at line: 2)
+  |Scope MainEntry:main Symbols: 
+
+Built a parse-tree at st_tree.dot. Use 'make st_tree' to generate the pdf version.
+
+The compiler successfuly generated a syntax tree for the given input! 
+
+Print Tree:  
+Program:
+  programArgs:
+    Class:C
+      ClassArgs:
+        Method:add
+          methodType:
+            IntType:int
+          methodArgs:
+            Variable:a
+              IntType:int
+            Variable:b
+              IntType:int
+          StatementBlock:
+            ReturnStatement:return
+              AddExpression:+
+                Id:a
+                Id:b
+  MainEntry:main
+    StatementBlock:
+      PrintStatement:print
+        MethodCallExpression:add
+          FunctionCallExpression:C
+            NoArgs:
+          CommaArgs:
+            Int:1
+      ReturnStatement:return
+        Int:0
+
+Built a parse-tree at tree.dot. Use 'make tree' to generate the pdf version.
+
+Doing Semantic analysis:  
+Function "add" expected 2 arguments but got 1 arguments! line:8

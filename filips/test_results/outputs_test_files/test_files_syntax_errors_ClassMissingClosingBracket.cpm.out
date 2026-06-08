@@ -1,0 +1,3 @@
+Syntax errors found! See the logs below:
+	@error at line 4. Cannot generate a syntax for this input:syntax error, unexpected CLASS, expecting CBR or VOL or ID
+End of syntax errors!

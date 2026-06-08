@@ -1,0 +1,3 @@
+Syntax errors found! See the logs below:
+	@error at line 2. Cannot generate a syntax for this input:syntax error, unexpected LP, expecting COLON
+End of syntax errors!

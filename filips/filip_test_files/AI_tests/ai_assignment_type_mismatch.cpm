@@ -1,0 +1,5 @@
+main(): int {
+  a: int
+  a := true //@error - semantic (types dont match! one is type "IntType" and the other is type "BoolType")
+  return 0
+}

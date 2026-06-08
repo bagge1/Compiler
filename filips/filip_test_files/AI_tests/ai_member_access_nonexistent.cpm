@@ -1,0 +1,9 @@
+class C {
+  a: int
+}
+
+main(): int {
+  c: C := C()
+  print(c.b()) //@error - semantic (Could find Class "C"! or Could not find method "b" in Class "C" !)
+  return 0
+}

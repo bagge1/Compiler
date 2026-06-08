@@ -1,0 +1,54 @@
+Printing tree
+Scope Program: Symbols:  Symbol(name: main, type: int, id_type:MainEntry, scope: 0, Declared at line: 1)
+  |Scope MainEntry:main Symbols:  Symbol(name: x, type: float, id_type:Variable, scope: 1, Declared at line: 2) Symbol(name: y, type: float, id_type:Variable, scope: 1, Declared at line: 3) Symbol(name: z, type: float, id_type:Variable, scope: 1, Declared at line: 4)
+
+Built a parse-tree at st_tree.dot. Use 'make st_tree' to generate the pdf version.
+
+The compiler successfuly generated a syntax tree for the given input! 
+
+Print Tree:  
+Program:
+  programArgs:
+  MainEntry:main
+    StatementBlock:
+      VarDeclareStatement:
+        Variable:x
+          FloatType:float
+          DivExpression:/
+            Float:1.0
+            Float:7.0
+      VarDeclareStatement:
+        Variable:y
+          FloatType:float
+          MultExpression:*
+            AddExpression:+
+              Float:10.0
+              Id:x
+            Float:2.0
+      VarDeclareStatement:
+        Variable:z
+          FloatType:float
+          SubExpression:-
+            Id:y
+            MultExpression:*
+              Id:x
+              Id:x
+      PrintStatement:print
+        Id:x
+      PrintStatement:print
+        Id:y
+      PrintStatement:print
+        Id:z
+      AssignStatement::=
+        Id:z
+        MultExpression:*
+          Id:z
+          Id:z
+      PrintStatement:print
+        Id:z
+      ReturnStatement:return
+        Int:0
+
+Built a parse-tree at tree.dot. Use 'make tree' to generate the pdf version.
+
+Doing Semantic analysis:  

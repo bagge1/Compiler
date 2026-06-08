@@ -1,0 +1,25 @@
+class test{
+    b:int
+    a:int[]
+
+    set(in:int[]):void{
+        a := in
+    }
+
+    printa():void{
+        print(a)
+        print(a[1])
+    }
+}
+
+
+main(): int{
+    a:int := 1
+    b:int[] := int[1,2,3,4]
+
+    t:test := test()
+    t.set(b)
+    t.printa()
+    print(b)
+    return 0
+}

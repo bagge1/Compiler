@@ -1,0 +1,60 @@
+
+class hej{
+
+    a:int
+    b:boolean
+
+    func():boolean{
+        a := 3 + a
+        return(true)
+    }
+
+    func2(num:int, boo:boolean):int{
+        func2(1,boo)
+        return(num^2)
+    }
+
+}
+
+
+
+
+main(): int{
+    p:boolean
+    arr:int[]
+    arr2:int[] := int[5,4,7,2]
+    arr := arr2
+    if(true){
+        p := true
+
+    }
+    f:boolean := true
+    if(f = p){
+        print(1+4+1.6)
+
+    }
+    for(volatile yes:int := 0,yes <= 10 +4,yes := yes+1){
+        print(yes)
+        if(yes = 5){
+            continue
+        }
+        break
+    }
+    help:int := 3+5+arr2[4]
+    len:int := arr.length
+    index:int := arr[len]
+
+    arr[len] := 3 + 5
+
+    //checking function calls
+    h:hej := hej()
+
+    help := h.func2(arr[index],true)
+
+    i:int := 1
+
+
+    return 0
+}
+
+

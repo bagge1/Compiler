@@ -339,11 +339,11 @@ variable: ID IS_OF type {
             ;
           
 for_init: variable {
-              $$ = new Node("Initilization", "", yylineno);
+              $$ = new Node("Initialization", "", yylineno);
               $$->children.push_back($1);
             }
             | expression ASSIGN expression {
-              $$ = new Node("Initilization", "", yylineno);
+              $$ = new Node("Initialization", "", yylineno);
               Node* assignNode = new Node("Assign", "", yylineno);
               assignNode->children.push_back($1);
               assignNode->children.push_back($3);

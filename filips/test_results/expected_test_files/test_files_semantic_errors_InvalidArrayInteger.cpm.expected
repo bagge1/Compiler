@@ -1,0 +1,6 @@
+//@error - semantic (invalid type of array index)
+//@error - semantic (invalid type of array index)
+//@error - semantic (type mismatch: int[] := int)
+//@error - semantic (member .length is used incorrectly)
+//@error - semantic (invalid use of 'this' in C+-)
+//@error - semantic (trying to use int as int array)

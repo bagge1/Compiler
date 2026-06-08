@@ -1,0 +1,8 @@
+main(): int {
+  arr: int[] := int[10, 20]
+  len: int := arr.length
+  idx: int := len - 1
+  val: int := arr[idx]
+  print(val)
+  return 0
+}

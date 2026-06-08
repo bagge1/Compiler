@@ -1,0 +1,3 @@
+Syntax errors found! See the logs below:
+	@error at line 5. Cannot generate a syntax for this input:syntax error, unexpected COMMA, expecting RP
+End of syntax errors!

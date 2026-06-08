@@ -1,0 +1,2 @@
+//@error - semantic (Method is of type "int" but the return is of type "BoolType")
+1) Method is of type "int" but the return is of type "BoolType"

@@ -5,6 +5,9 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+#include <stack>
+#include <utility>
+#include <set>
 
 using namespace std;
 
@@ -41,6 +44,11 @@ class IntermediateRepresentation{
 		// current context
 		BasicBlock* currentBlock = nullptr;
 		MethodIR* currentMethod = nullptr;
+		string currentClass;
+		stack<pair<BasicBlock*, BasicBlock*>> loopBlocks;
+		set<string> classNames;
+		unordered_map<string, string> varTypes;
+		unordered_map<string, set<string>> classFields;
 
 		// helper functions
 		string newTemp();		// returns t0, t1, t2, ...
@@ -60,6 +68,8 @@ class IntermediateRepresentation{
 		void setCurrentBlock(BasicBlock* block);
 
 		void generateDot(std::ofstream& out);
+
+		BasicBlock* newBlock();
 
 	public:
 		IntermediateRepresentation();

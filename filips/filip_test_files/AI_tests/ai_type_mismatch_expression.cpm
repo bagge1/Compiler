@@ -1,0 +1,4 @@
+main(): int {
+  print(10 + true) //@error - semantic (Numeric operation between "IntType" and "BoolType" is not allowed!)
+  return 0
+}

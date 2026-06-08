@@ -1,0 +1,2 @@
+//@error - semantic (Cannot use "BoolType" to index an array!)
+1) Cannot use "BoolType" to index an array!

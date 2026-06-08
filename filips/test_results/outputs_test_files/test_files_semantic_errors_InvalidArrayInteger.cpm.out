@@ -1,0 +1,104 @@
+Printing tree
+Scope Program: Symbols:  Symbol(name: A, type: A, id_type:Class, scope: 0, Declared at line: 3) Symbol(name: main, type: int, id_type:MainEntry, scope: 0, Declared at line: 27)
+  |Scope Class:A Symbols:  Symbol(name: a1, type: A, id_type:Method, scope: 1, Declared at line: 3) Symbol(name: a2, type: int, id_type:Method, scope: 1, Declared at line: 19)
+  |  |Scope Method:a1 Symbols:  Symbol(name: num, type: int, id_type:Variable, scope: 2, Declared at line: 3) Symbol(name: num_aux, type: intArray, id_type:ArrayExpression, scope: 2, Declared at line: 4)
+  |  |  |Scope IfStatement:if Symbols: 
+  |  |  |Scope ElseStatement: Symbols: 
+  |  |Scope Method:a2 Symbols:  Symbol(name: a, type: int, id_type:Variable, scope: 5, Declared at line: 20)
+  |Scope MainEntry:main Symbols: 
+
+Built a parse-tree at st_tree.dot. Use 'make st_tree' to generate the pdf version.
+
+The compiler successfuly generated a syntax tree for the given input! 
+
+Print Tree:  
+Program:
+  programArgs:
+    Class:A
+      ClassArgs:
+        Method:a1
+          methodType:
+            TypeExpression:A
+          methodArgs:
+            Variable:num
+              IntType:int
+          StatementBlock:
+            VarDeclareStatement:
+              Variable:num_aux
+                ArrayExpression:int
+                NoExpression:
+            AssignStatement::=
+              ArrayIndexExpression:
+                Id:num_aux
+                Boolean:false
+              Int:2
+            IfStatement:if
+              LessExpression:<
+                ArrayIndexExpression:
+                  Id:num_aux
+                  FunctionCallExpression:a2
+                    NoArgs:
+                Int:1
+              StatementBlock:
+                AssignStatement::=
+                  ArrayIndexExpression:
+                    Id:num_aux
+                    Int:0
+                  Int:1
+              ElseStatement:
+                StatementBlock:
+                  AssignStatement::=
+                    Id:num_aux
+                    FunctionCallExpression:a2
+                      NoArgs:
+            AssignStatement::=
+              ArrayIndexExpression:
+                Id:num_aux
+                Int:3
+              lengthExpression:
+                Id:num
+            ReturnStatement:return
+              Id:this
+        Method:a2
+          methodType:
+            IntType:int
+          NoArgs:
+          StatementBlock:
+            VarDeclareStatement:
+              Variable:a
+                IntType:int
+                NoExpression:
+            AssignStatement::=
+              ArrayIndexExpression:
+                Id:a
+                Int:0
+              Int:2
+            ReturnStatement:return
+              Id:a
+  MainEntry:main
+    StatementBlock:
+      PrintStatement:print
+        MethodCallExpression:a1
+          FunctionCallExpression:A
+            NoArgs:
+          CommaArgs:
+            Int:1
+      PrintStatement:print
+        MethodCallExpression:a2
+          FunctionCallExpression:A
+            NoArgs:
+          NoArgs:
+      ReturnStatement:return
+        Int:0
+
+Built a parse-tree at tree.dot. Use 'make tree' to generate the pdf version.
+
+Doing Semantic analysis:  
+ERROR: Identifier: "this" Not defined in this scope! line:17
+ERROR: Cannot use "BoolType" to index an array! line:6
+types dont match! one is type "TypeError" and the other is type "IntType". line:6
+Cannot assign an "IntType" array to a "IntType"! line:11
+ERROR: length can ONLY be used in arrays. identifier: "num" Is not an array! line:14
+ERROR: Identifier: "a" Not defined in this scope! line:23
+ERROR: Identifier: "a" Not defined in this scope! line:21
+types dont match! one is type "TypeError" and the other is type "IntType". line:21
