@@ -195,6 +195,9 @@ string SemAnalysis::check_type(Node* node, bool child)
 		} else {
 			argsNode = node->children.front();
 			entry = st.lookup(node->value);
+			if (entry != nullptr && entry->category == "Class"){
+				return entry->name;
+			}
 			if (entry == nullptr || entry->category != "Method"){
 				cerr << "Semantic Error at line " << node->lineno << ": Function '" << node->value << "' does not exist in current scope" << endl;
 				return "Undeclared";

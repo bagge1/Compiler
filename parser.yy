@@ -422,7 +422,9 @@ statement: stmtBl {
               Node* condNode = new Node("Condition", "", yylineno);
               condNode->children.push_back($3);
               $$->children.push_back(condNode);
-              $$->children.push_back($5);
+              if ($5 != nullptr){
+                $$->children.push_back($5);
+              }
             }
             | IF LP expression RP statement ELSE statement {
               $$ = new Node("IfElseStatement", "", yylineno);
