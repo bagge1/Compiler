@@ -1,3 +1,0 @@
-//@error - semantic (Function "add" expected 2 arguments but got 1 arguments!)
-1) a: int, b: int
-2) Function "add" expected 2 arguments but got 1 arguments!

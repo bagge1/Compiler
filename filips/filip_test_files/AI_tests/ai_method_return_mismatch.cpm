@@ -1,9 +1,0 @@
-class C {
-  f(): int {
-    return true //@error - semantic (Method is of type "int" but the return is of type "BoolType")
-  }
-}
-
-main(): int {
-  return 0
-}

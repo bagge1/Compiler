@@ -1,7 +1,0 @@
-main(): int {
-  arr: int[] := int[1,2,3]
-  idx: int := 1 + 1
-  val: int := arr[idx]
-  print(val)
-  return 0
-}

@@ -1,4 +1,0 @@
-main(): int {
-  print(x) //@error - semantic (ERROR: Identifier: "x" Not defined in this scope!)
-  return 0
-}

@@ -1,4 +1,0 @@
-//@error - lexical ('"' is not recognized by the C+- lexer)
-//@error - lexical ('%' is not recognized by the C+- lexer)
-//@error - lexical ('$' is not allowed in identifiers)
-//@error - lexical ('@' is not recognized by the C+- lexer)

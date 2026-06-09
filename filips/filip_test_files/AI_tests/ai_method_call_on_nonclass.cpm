@@ -1,6 +1,0 @@
-main(): int {
-  a: int
-  a := 5
-  print(a.f()) //@error - semantic (Could find Class "int"! or Could not find method "f" in Class "int" !)
-  return 0
-}

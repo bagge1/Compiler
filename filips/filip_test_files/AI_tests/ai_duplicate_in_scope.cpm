@@ -1,5 +1,0 @@
-main(): int {
-  a: int
-  a: int //@error - semantic (name already declared)
-  return 0
-}

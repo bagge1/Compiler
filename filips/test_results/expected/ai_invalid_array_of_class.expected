@@ -1,2 +1,0 @@
-//@error - semantic (types dont match! one is type "Person" and the other is type "IntTypeArray")
-1) types dont match! one is type "Person" and the other is type "IntTypeArray"

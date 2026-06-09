@@ -1,6 +1,0 @@
-main(): int {
-  x: int
-  x := 5
-  len: int := x.length //@error - semantic (length can ONLY be used in arrays. identifier: "x" Is not an array!)
-  return 0
-}

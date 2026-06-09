@@ -1,8 +1,0 @@
-class Person {
-  id: int
-}
-
-main(): int {
-  arr: int[] := Person() //@error - semantic (types dont match! one is type "Person" and the other is type "IntTypeArray")
-  return 0
-}

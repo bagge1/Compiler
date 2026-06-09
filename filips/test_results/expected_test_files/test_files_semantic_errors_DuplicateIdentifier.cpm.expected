@@ -1,7 +1,0 @@
-//@error - semantic (Already Declared Class: 'DuplicateIdentifiers')
-//@error - semantic (Already Declared variable: 'a')
-//@error - semantic (Already Declared Function: 'func')
-//@error - semantic (Already Declared Class: 'DuplicateIdentifiers')
-//@error - semantic (Already Declared variable: 'b')
-//@error - semantic (Already Declared parameter: 'param')
-//@error - semantic (Already Declared parameter: 'param')

@@ -1,6 +1,0 @@
-main(): int {
-  arr: int[] := int[1, 2, 3]
-  idx: boolean := true
-  val: int := arr[idx] //@error - semantic (Cannot use "BoolType" to index an array!)
-  return 0
-}

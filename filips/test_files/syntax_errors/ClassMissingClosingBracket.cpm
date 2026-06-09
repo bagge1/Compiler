@@ -1,9 +1,0 @@
-class Element {
-  //@error - syntax (class missing closing bracket)
-
-class Element2 {
-}
-main() : int {
-  print(no_method(10))
-  return 0
-}

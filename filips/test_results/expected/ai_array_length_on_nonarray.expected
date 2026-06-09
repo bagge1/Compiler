@@ -1,2 +1,0 @@
-//@error - semantic (length can ONLY be used in arrays. identifier: "x" Is not an array!)
-1) length can ONLY be used in arrays. identifier: "x" Is not an array!

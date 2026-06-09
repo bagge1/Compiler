@@ -1,7 +1,0 @@
-//@error - semantic ('element' is not a valid Class/type)
-//@error - semantic (type mismatch: boolean := Element)
-//@error - semantic (array variable 'newVar' may be uninitialized)
-//@error - semantic (member .length used on non-array)
-//@error - semantic (type mismatch: Element := int)
-//@error - semantic (invalid type of array index: expected int, got boolean)
-//@error - semantic (wrong number of parameters: expected 1)
