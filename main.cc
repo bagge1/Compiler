@@ -83,8 +83,7 @@ int main(int argc, char **argv)
 				/* Intermediate Representation */
 				ir.generate_ir(root);
 				ir.printTAC();
-				string cfgFile = "IR_tree.dot";
-				ir.writeCFG(cfgFile);
+				ir.writeCFG();
 			}
 			catch (...)
 			{

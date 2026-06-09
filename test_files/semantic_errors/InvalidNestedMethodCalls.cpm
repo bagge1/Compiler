@@ -2,7 +2,7 @@ class A {
   volatile b: boolean
 
   a1(num: int): A {
-    volatile num_aux: int
+    num_aux: int
     if (a3()) {
       num_aux := 1
     } else if (a2() < 1) {
@@ -16,12 +16,12 @@ class A {
   a2(): int {
     x: A
     y: A
-    volatile t: int
+    t: int
     ia: int[]
-    volatile ret: int
+    ret: int
     aa: int
 
-    // --- nested calls with wrong parameter TYPES ---  
+    // --- nested calls with wrong parameter TYPES ---
 
     b := a1(a3()).a3() //@error - semantic (invalid argument type for a1: expected int, got boolean)
 

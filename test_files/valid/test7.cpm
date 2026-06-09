@@ -72,7 +72,7 @@ class QS {
 
   Init(sz : int): int {
     size := sz
-    number := int[20,7,12,18,2,11,6,9,19,5, a]
+    number := int[20,7,12,18,2,11,6,9,19,5]
     return 0
   }
 }

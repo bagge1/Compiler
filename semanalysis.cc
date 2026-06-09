@@ -377,6 +377,6 @@ void SemAnalysis::analyze()
 {
 	st.build_st();
 	// st.printST();
-	st.resetTable();
-	traversal(root);
+	// st.resetTable();
+	// traversal(root);
 }

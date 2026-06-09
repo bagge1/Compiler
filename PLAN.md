@@ -98,49 +98,70 @@ why, so the reasoning survives.
    float, else `int`. So at runtime `int / int` is **truncating integer division** (test4's
    `(n / i) * i = n` relies on this) and `int ^ int → int` (test1's `2 ^ (4*2)`); a float operand promotes
    to float division. Keep codegen and the interpreter consistent with this. (See §6.9.)
+7. **Call ABI — runtime dispatch on class-tagged objects + explicit `this` (decided 2026-06-09).**
+   ✅ *Decided.* The receiver of `obj.method(...)` is an arbitrary expression
+   ([parser.yy:263](parser.yy#L263)) — `a[i].m()`, `f().m()`, chained calls — so dispatch is resolved
+   **at run time from the receiver's class**, which works for every receiver shape:
+   - **Method definitions** are stored under the key `Class::method`; the entry method is `main`. (The
+     `Main method` node's `value` is `""`, [parser.yy:75](parser.yy#L75), so its name is set explicitly —
+     this also fixes the empty-`main` blocker. `main` is never `CALL`ed; it is the start frame.)
+   - **Objects carry their class.** `NEW_OBJECT C` tags the new object with class `C`; the runtime object is
+     `{ string cls; map<string,Value> fields; }`.
+   - **Every call passes the receiver as a trailing `this`** (the last `PARAM`), `argc+1` — for 2-child
+     `obj.method(...)` **and** 1-child self-calls alike. `CALL` carries the **bare** method name; the
+     interpreter reads `this` (the last arg), takes its `cls`, and dispatches to `methods[cls + "::" + name]`.
+     There are no free functions in C+- (methods live in classes), so every `CALL` has a receiver; the only
+     1-child form without one is a `Class()` construction, which lowers to `NEW_OBJECT`, not `CALL`.
+   - **Binding** is positional against the callee's parameter list `[declared params…, this]` (every
+     callable is a class method); `this` is just the last parameter, so it needs no special case (#5, #6).
+   *(Rejected: static `Class::method` qualification from the receiver's static type — simplest interpreter,
+   but cannot resolve `a[i].m()` / `f().m()` / chained receivers without full return-type and
+   array-element-type inference; runtime dispatch is both more general and less machinery.)*
+
+### Accepted limitations (decided 2026-06-09)
+
+Deliberately **not** handled, to keep the backend simple; each is legal C+- but rare. Note these in the
+hand-in so they read as known trade-offs, not latent bugs:
+
+- **Global variables.** Top-level `var_list` declarations ([parser.yy:53](parser.yy#L53)) are not lowered;
+  programs that rely on globals are out of scope. *(All test files keep state in classes/`main`.)*
+- **Nested-scope shadowing.** Locals are flattened into one name-keyed frame, so re-declaring the same name
+  in an inner block ([semanalysis.cc:48](semanalysis.cc#L48) opens block scopes) would alias the outer one.
+  `newTemp` names (`t0,t1,…`) are globally unique and never collide with user identifiers.
+- **`LengthOf` on a non-ID operand** (`a[i].length`, `f().length`). The operand is lost at parse time
+  (decision #5, Option A — [parser.yy:259-262](parser.yy#L259-L262)); only `identifier.length` is supported.
+
+**Built for generality (not just the tests):** runtime dispatch on any receiver (decision #7 above),
+`read` into the target's declared type, and the §1.6 numeric model. The no-`main` program form (Stage 3.5
+step 5) is **required** — the teacher's updated [test1.cpm](test_files/valid/test1.cpm) (the graded minimum)
+is now exactly that bare `stmtBl` form.
 
 ---
 
-## Progress snapshot (updated 2026-06-08)
+## Progress snapshot (updated 2026-06-09)
 
-What the current [ir.cc](ir.cc)/[ir.hh](ir.hh) already do, and what is left. **Stage 6 has been
-dissolved** — its work was core language, not a separable "higher grade" add-on, so each subgoal now
-lives in the stage that owns that layer (IR generation → Stages 2–3, bytecode → Stage 4, interpreter →
-Stage 5).
+**The IR front half (Stages 0–3.5) is complete and verified against `test1`–`test8`.** The compiler emits
+correct TAC + a CFG `.dot` for every valid program, including the bare-`stmtBl` `test1`, the field/array/
+object program `test8`, and the deeply nested `test7` (`QS::Sort`: outer loop + two inner loops, two
+`break`s, multi-statement bodies — all lowered). **Stage 6 was dissolved** into the layer that owns each
+subgoal (IR → Stages 2–3, bytecode → Stage 4, interpreter → Stage 5).
 
 **Done (in [ir.cc](ir.cc)/[ir.hh](ir.hh)):**
-- All IR data structures and helpers: `newTemp`, `newLabel`, `newBlock`, `emit`, `addEdge`,
-  `setCurrentBlock`, `writeCFG`/`generateDot`, `printTAC` ([ir.cc:22-42](ir.cc#L22-L42),
-  [ir.cc:302-369](ir.cc#L302-L369)).
-- `generateExpression` for literals/IDs/booleans, all binary ops, `Not`, `ArrayAccess` (read),
-  `LengthOf`, and both `CallMethod` forms ([ir.cc:44-128](ir.cc#L44-L128)).
-- `generateStatement` for declarations, `AssignVariable`/`Assign` (incl. array-store write),
-  `Read`/`Print`/`Return`, nested `StatementBlock`, and **all** control flow —
-  `IfStatement`, `IfElseStatement`, `ForStatement`, `Break`, `Continue`
-  ([ir.cc:130-274](ir.cc#L130-L274)).
-- `generate_ir` collects `classNames` and walks `Main method` + each `Class`'s `Method`s
-  ([ir.cc:313-330](ir.cc#L313-L330)); `varTypes`/`classNames` members exist ([ir.hh:48-49](ir.hh#L48-L49)).
+- All IR data structures + helpers (`newTemp`, `newLabel`, `newBlock`, `emit`, `addEdge`,
+  `setCurrentBlock`, `writeCFG`/`generateDot`, `printTAC`).
+- `generateExpression`: literals/IDs/booleans, all binary ops, `Not`, `ArrayAccess`, `Array` literal
+  (`NEW_ARRAY`/`ARRAY_STORE`), `LengthOf`, field reads (`GET_FIELD`), both `CallMethod` forms.
+- `generateStatement`: declarations, `Assign` (incl. array-store + `SET_FIELD`), `Read`/`Print`/`Return`,
+  and all control flow (`If`/`IfElse`/`For`/`Break`/`Continue`) with correct CFG edges.
+- `generateMethod`/`generate_ir`: `Class::method`/`main` naming, the bare-`stmtBl` entry, per-method
+  `varTypes` reset, two-pass class-name/field collection, parameter lists (with trailing `this`).
+- **Stage 3.5 (all of §3 Stage 3.5) is done** — see that section for the per-step checkmarks and the
+  verified `CALL`/`this`/field output.
 
-**Update (2026-06-08, later):** all of Stage 2 — including the full-language work folded in from the old
-Stage 6 — is now **done and verified**. All three bugs below are fixed (parser-side rename + regenerate for
-#1, child index fix for #2, dead line removed for #3); `Array`→`NEW_ARRAY`/`ARRAY_STORE` and the
-classes/fields/parameters/`this` resolution are implemented and confirmed against `test1`–`test8`. See the
-checked-off items in §3 Stage 2 for the verified TAC output (e.g. `Counter::inc` → `GET_FIELD this value`/
-`SET_FIELD this value`).
-
-**What's left:**
-- **Stage 4** (bytecode generation/serialization) and **Stage 5** (interpreter) — not started; both now
-  include the call/object/array opcodes formerly parked in the old Stage 6.
-
-> ✅ **Three bugs — fixed.** (Originally found reviewing [ir.cc](ir.cc) against [parser.yy](parser.yy);
-> kept here for the record.)
-> 1. **`ForStatement` init was silently dropped.** The code checked `"Initialization"` but the grammar
->    emitted the misspelled `"Initilization"` — fixed by correcting the spelling in `parser.yy` (both
->    `for_init` rules) and regenerating `parser.tab.cc`; `ir.cc` already used the correct spelling.
-> 2. **`CallMethod` (2-child) iterated the wrong child for args.** Was `children.front()->children` (the
->    receiver); fixed to `children.back()->children` (the `Arguments` node).
-> 3. **Stray `varTypes` write in `Assign`.** Removed the line that wrote a garbage `varTypes[""]` entry —
->    type tracking now happens only in the declaration cases (`AssignVariable`/`Variable`), as intended.
+**What's left:** **Stage 4** (bytecode generation/serialization) and **Stage 5** (interpreter) — not
+started. Both use the runtime-dispatch / class-tag ABI from decision #7. The IR is self-complete (every
+block ends in an explicit `GOTO`/`IF_FALSE`+`GOTO`/`RETURN`), so Stage 4 is a straight 1:1 block-by-block
+translation with no fall-through to manage.
 
 ---
 
@@ -567,6 +588,71 @@ drift apart. The label that goes into the jump is just the target block's `->lab
       single join per branch (cond→body, cond→after, body→cond back-edge; the `if` inside test4 adds a
       then/join diamond).
 
+### Stage 3.5 — Call/return ABI fixes — ✅ DONE (2026-06-09)
+
+**Goal:** make the IR's call/return shape *executable* before any bytecode exists, so Stage 4/5 don't bake
+in the gaps below. All edits were in [ir.hh](ir.hh)/[ir.cc](ir.cc), driven by decision #7.
+
+**Status:** all 7 steps implemented and verified against `test1`–`test8`. Three extra control-flow bugs were
+found and fixed while validating `test7`: **(i)** multi-statement `for`/`if-else` bodies dropped every
+statement after the first — the parser renames a braced `{…}` body's `StatementBlock` to `LoopBody`/
+`ThenBody` so its children *are* the statements, but the IR took only `.front()`; fixed to iterate all
+children. **(ii)** a then-body ending in `break`/`return` produced a dead second `GOTO` — fixed with an
+`isTerminated(currentBlock)` guard before each trailing `GOTO`. **(iii)** the *true* branch of every
+`IF_FALSE` was an implicit fall-through (correct only if the then-block happened to be physically next, which
+nested ifs break) — fixed by emitting an explicit `GOTO <true-target>` right after each `IF_FALSE` in the
+`If`/`IfElse`/`For` cases, so every block now ends in an explicit transfer and **Stage 4 is a 1:1 walk with
+no fall-through**. `QS::Sort` now lowers in full (outer + two inner loops, both `break`s, all swaps, the
+trailing `if`).
+
+> Why this stage existed: the IR was only ever *printed*, never *run*, so the earlier "verified" notes only
+> proved `printTAC` produced output. Two ABI bugs hid there, both now fixed:
+> - **(A) self-calls dropped `this`** — a 1-child self-call (`Init(sz)`) emitted `CALL Init …` with no
+>   receiver, so `SET_FIELD this size` ran with `this` unbound. Fixed in step 3.
+> - **(B) `void`/return-less methods emit no `RETURN`** (test8's `init`/`inc`) — the IR leaves these without
+>   a terminator on purpose; **Stage 4 appends the implicit `RETURN`/`HALT`** (see that bullet).
+
+- [X] **1. `MethodIR` carries its parameter names + argc** (#5). Add `vector<string> params;` to
+      `MethodIR` ([ir.hh:29-32](ir.hh#L29-L32)). In `generateMethod` ([ir.cc:302-328](ir.cc#L302-L328)),
+      while walking the `Parameters` node, `push_back` each `param->value` into `currentMethod->params` in
+      declaration order; then, **for a class method** (`!currentClass.empty()`), `push_back("this")` last.
+      `argc` is `params.size()`. *(This is the binding order Stage 5 relies on: args arrive `[p0…pn-1, this]`.)*
+- [X] **2. Name methods `Class::method` / `main`** (#4, and fixes the empty-`main` blocker). In
+      `generateMethod`, set the `MethodIR` name to `currentClass + "::" + node->value` when
+      `!currentClass.empty()`, else `node->value`. ⚠ The `Main method` node's `value` is `""`
+      ([parser.yy:75](parser.yy#L75)), so its name must be set explicitly to **`main`** (special-case it in
+      the `Main method` branch of `generate_ir`, or in `generateMethod`).
+- [X] **3. Every call passes `this`; `CALL` carries the bare method name** (#4 + #6 + bug A, decision #7 —
+      runtime dispatch). The interpreter resolves the class from the receiver at run time, so the IR emits no
+      class prefix on `CALL`:
+      - **1-child `CallMethod`** ([ir.cc:117-127](ir.cc#L117-L127)): if `classNames.count(node->value)`, keep
+        `NEW_OBJECT` unchanged (construction — no `this`). Otherwise it is a **self-call** inside a class —
+        emit a trailing `emit("PARAM","this","","")` and `emit("CALL", node->value, to_string(argc+1), t)`.
+      - **2-child `CallMethod`** ([ir.cc:129-139](ir.cc#L129-L139)): unchanged shape — evaluate the args, then
+        emit the trailing `PARAM` for the receiver expression (the **last** arg), then
+        `emit("CALL", node->value, to_string(argc+1), t)`. No `staticClassOf` needed.
+- [X] **4. Per-method state hygiene** (prereqs from the prior review — prevents cross-method leaks). At the
+      top of `generateMethod`, **clear `varTypes`** (it is a member and currently accumulates every method's
+      locals — [ir.hh:50](ir.hh#L50)). In `generate_ir`'s class loop, **collect a class's fields in a first
+      pass** before lowering any of its methods ([ir.cc:349-357](ir.cc#L349-L357) is single-pass, so a method
+      declared above a field wouldn't resolve it).
+- [X] **5. No-`main` program form** — ⚠ **now required for the graded minimum.** The teacher's updated
+      [test1.cpm](test_files/valid/test1.cpm) is the bare `stmtBl` program form (`{ … }`, no `main()`,
+      [parser.yy:67-70](parser.yy#L67-L70)) — confirmed to currently emit **zero IR**, because `generate_ir`
+      ([ir.cc:341-360](ir.cc#L341-L360)) only handles `Main method`/`Class` children. Add a branch: if a
+      child is a `StatementBlock`, synthesize a method named `main` and lower that block as its body (same
+      path as `Main method`, `currentClass = ""`). *(A class-only program with no entry stays a syntax error
+      — `NoMainMethod.cpm` — so this `StatementBlock` branch is the only missing root shape.)*
+- [X] **6. `read` records the target's declared type** (so the interpreter parses int vs float correctly).
+      In the `Read` case ([ir.cc:183-186](ir.cc#L183-L186)) emit the type into the spare field:
+      `emit("READ", name, varTypes[name], "")`. *(Stage 4 lowers it to `READ <type>`; Stage 5 parses
+      accordingly. An empty/unknown type → default to int.)*
+- [X] **7. Verify (`printTAC` on test7/test8):** every `CALL` is a **bare** name with
+      `argc == declared args + 1` and a trailing `PARAM this`. Expect test7 `Start` →
+      `CALL Init 2`, `CALL Print 1`, `CALL Sort 3`; test8 `main` → `CALL sumArray 2`, `CALL init 2`,
+      `CALL inc 1`, `CALL get 1`. Method headers print as `Calculator::sumArray:`, `Counter::inc:`, `main:`
+      (the **definition** keys are qualified; the **call sites** are bare — that's decision #7).
+
 ### Stage 4 — Bytecode generation & serialization
 
 **Goal:** lower the CFG to your stack-bytecode instruction set and write a readable `bytecode.txt`.
@@ -600,7 +686,7 @@ drift apart. The label that goes into the jump is just the target block's `->lab
           else if (op == "IF_FALSE") { emitLoad(out, in.arg1); out << "JMP_FALSE " << in.result << "\n"; }
           else if (op == "ASSIGN")   { emitLoad(out, in.arg1); out << "STORE " << in.result << "\n"; }
           else if (op == "PRINT")    { emitLoad(out, in.arg1); out << "PRINT\n"; }
-          else if (op == "READ")     { out << "READ\nSTORE " << in.arg1 << "\n"; }
+          else if (op == "READ")     { out << "READ " << (in.arg2.empty()?"int":in.arg2) << "\nSTORE " << in.arg1 << "\n"; }
           else if (op == "RETURN")   { emitLoad(out, in.arg1); out << "RETURN\n"; }
           else if (op == "NOT")      { emitLoad(out, in.arg1); out << "NOT\nSTORE " << in.result << "\n"; }
           else { emitLoad(out, in.arg1); emitLoad(out, in.arg2); out << op << "\nSTORE " << in.result << "\n"; }
@@ -624,15 +710,27 @@ drift apart. The label that goes into the jump is just the target block's `->lab
       the writer and that emit in sync.) `RETURN` already lowers above; emit `HALT` only at the end of `main`.
 - [ ] Walk the blocks **in creation order** (`method->basicBlocks`), printing a `label:` marker then the
       lowered instructions for each. Iterating that vector visits every block **exactly once**, which
-      satisfies the "don't re-emit a block" requirement without a separate visited set (you'd only need a
-      visited set if you instead did a DFS from the entry block). The `GOTO`/`IF_FALSE` you already emitted
-      carry the labels, so control flow is preserved; just make sure `main` ends in a `HALT`.
+      satisfies the "don't re-emit a block" requirement without a separate visited set.
+- [ ] **No fall-through to worry about — translate 1:1.** The IR is self-complete: every `IF_FALSE` is
+      immediately followed by an explicit `GOTO` to its *true* target (added in the control-flow cases on
+      2026-06-09), so **every block ends in an explicit transfer** (`GOTO`/`IF_FALSE`+`GOTO`/`RETURN`) and no
+      block depends on physical adjacency. That means the walk is a straight 1:1 translation — `GOTO`→`JMP`,
+      `IF_FALSE`→`JMP_FALSE` — and block layout is irrelevant. (E.g. `QS::Sort` `BB14` ends `IF_FALSE t27 ->
+      BB18` / `GOTO -> BB17`, both targets explicit, even though `BB15`/`BB16` sit between BB14 and BB17.)
+- [ ] **Emit an implicit terminator per method (issue B).** After a method's blocks, append `HALT` for
+      `main` and `RETURN` for every other method — **unconditionally is fine** (a trailing `RETURN` after an
+      existing one is unreachable, not wrong). Without this, `void`/return-less methods (test8's `init`/`inc`)
+      have no terminator and the interpreter's `pc++` runs off the end of `code[]`. The trailing `RETURN`
+      with nothing on the data stack yields a default value (the caller's result temp is discarded anyway).
 - [ ] **`emitBytecode`:** wrap the walk in the §4 text format — a header line, a `method <name> <argc>`
-      line per method, the labelled instructions, and a terminator. For a tiny `x := 2 + 3  print(x)`:
+      line per method, **a `params …` line listing the method's parameter names in binding order**
+      (`[declared params…, this]` for class methods — straight from `MethodIR::params`, Stage 3.5 step 1),
+      then the labelled instructions, then a terminator. For a tiny `x := 2 + 3  print(x)`:
 
       ```text
       CPMBC v1            <- header (your magic string)
       method main 0       <- name + arg count
+      params              <- parameter names in binding order (empty for main)
       BB0:
       PUSH_INT 2
       PUSH_INT 3
@@ -661,10 +759,11 @@ drift apart. The label that goes into the jump is just the target block's `->lab
       call's state:
 
       ```cpp
+      struct Obj   { string cls; map<string,Value> fields; };           // object knows its class (decision #7)
       struct Value { enum { INT, FLOAT, BOOL, ARRAY, OBJ } tag; long i=0; double f=0; bool b=false;
-                     shared_ptr<vector<Value>> arr; shared_ptr<map<string,Value>> obj; }; // heap refs for arrays/objects
+                     shared_ptr<vector<Value>> arr; shared_ptr<Obj> obj; }; // heap refs for arrays/objects
       struct Instr { string op; vector<string> args; };
-      struct Method { string name; int argc; vector<Instr> code; map<string,int> labels; };
+      struct Method { string name; int argc; vector<string> params; vector<Instr> code; map<string,int> labels; };
       struct Frame  { Method* m; int pc; map<string,Value> locals; };   // name-keyed locals (decision #3)
 
       Value mkInt(long v)  { Value x; x.tag=Value::INT;  x.i=v; return x; }
@@ -678,6 +777,7 @@ drift apart. The label that goes into the jump is just the target block's `->lab
       while (getline(in, line)) {
           if (line.empty()) continue;
           if (line.rfind("method ",0)==0) { /* parse name+argc */ cur=&methods[name]; cur->name=name; cur->argc=argc; continue; }
+          if (line.rfind("params",0)==0)  { /* split rest into cur->params (Stage 4 emits binding order) */ continue; }
           if (line=="end") { cur=nullptr; continue; }
           if (line.back()==':') { cur->labels[line.substr(0,line.size()-1)] = cur->code.size(); continue; }
           istringstream ss(line); Instr ins; ss >> ins.op;
@@ -713,16 +813,20 @@ drift apart. The label that goes into the jump is just the target block's `->lab
 - [ ] **Calls, returns & recursion** (folded in from the old Stage 6 — needed by `test5`–`test8` and any
       recursive program). Keep an activation `stack<Frame> callStack;`. `PARAM` stashes the next argument;
       `CALL` builds a fresh callee `Frame` (its own `locals` — this is what makes recursion automatic), binds
-      the popped args to the callee's parameter names, pushes the caller, and switches frames; `RETURN`
-      restores the caller and leaves the result on the data stack:
+      the collected args **positionally** to `callee.m->params` (decision #7: this list already ends in
+      `this` for class methods, so `this` needs no special case), pushes the caller, and switches frames;
+      `RETURN` restores the caller and leaves the result on the data stack:
 
       ```cpp
-      else if (op=="PARAM")  { args.push_back(pop()); fr.pc++; }        // collect call arguments
-      else if (op=="CALL")   {
-          Frame callee{ &methods[in.args[0]], 0, {} };
+      else if (op=="PARAM")  { args.push_back(pop()); fr.pc++; }        // collect call args, in order
+      else if (op=="CALL")   {                                         // in.args = { bare method name, argc }
           int argc = stoi(in.args[1]);
-          // bind the last `argc` collected args to the callee's parameter names, then clear `args`
-          callStack.push(fr); fr = callee;                             // switch to the new frame
+          Value& self = args.back();                                   // the trailing `this` (decision #7)
+          Method* callee = &methods[self.obj->cls + "::" + in.args[0]];// resolve by the receiver's class
+          Frame f{ callee, 0, {} };
+          for (int k=0; k<argc; ++k) f.locals[callee->params[k]] = args[args.size()-argc+k]; // positional
+          args.clear();                                                // strict nesting ⇒ one args buffer is enough
+          callStack.push(fr); fr = f;                                  // switch to the new frame
       }
       else if (op=="RETURN") {
           Value rv = ds.empty() ? Value{} : pop();
@@ -730,12 +834,26 @@ drift apart. The label that goes into the jump is just the target block's `->lab
           fr = callStack.top(); callStack.pop(); ds.push(rv); fr.pc++; // resume caller, result on stack
       }
       ```
-      *(Parameter names come from each method's definition. The simplest scheme: emit a `params a b c` line
-      after `method <name> <argc>` in Stage 4 so the loader records them, then `CALL` binds positionally.)*
+      Two invariants this relies on (keep them true): **(1)** each method body is *stack-balanced* and
+      `RETURN` leaves exactly one value, so the shared data stack `ds` is undisturbed across a call (the
+      caller's in-progress operands sit safely below the callee's frame). **(2)** Dispatch is by the
+      already-qualified name in `in.args[0]` — no runtime class lookup (decision #7). For multi-pop ops,
+      **pop in reverse of push**: e.g. `ARRAY_STORE` reads `value=pop(); idx=pop(); arr=pop()` and binary ops
+      read `b=pop(); a=pop()` so `a op b` matches the load order. `POW` on two `INT`s uses integer power
+      (test1's `2 ^ (4*2)` stays `int`); a float operand promotes (§1.6, same rule as `DIV`).
+      *(Parameter names are the `params` line each method carries — emitted by Stage 4 from `MethodIR::params`
+      (Stage 3.5 step 1) in binding order `[declared params…, this]`, recorded by the loader above.)*
 - [ ] **Arrays & objects** (heap values, also from the old Stage 6): `NEW_ARRAY` pops a size and pushes an
-      `ARRAY` Value; `ARRAY_LOAD`/`ARRAY_STORE` index it; `ARRAY_LEN` pushes its size. `NEW_OBJECT` pushes an
-      `OBJ` Value (a `map<string,Value>`); `GET_FIELD`/`SET_FIELD` read/write a named field on the receiver
-      popped from the stack. Using `shared_ptr` (above) gives reference semantics for free.
+      `ARRAY` Value; `ARRAY_LOAD` (`idx=pop(); arr=pop()`) / `ARRAY_STORE` (`value=pop(); idx=pop(); arr=pop()`)
+      index it; `ARRAY_LEN` pushes its size. `NEW_OBJECT <C>` pushes an `OBJ` Value whose
+      `obj = make_shared<Obj>()` with `obj->cls = C` (the class tag that `CALL` dispatches on, decision #7) —
+      no constructor runs, fields start absent (a later `GET_FIELD` of an unset field yields a default
+      `Value{}`). `GET_FIELD <f>` pops the receiver and pushes `obj->fields[f]`; `SET_FIELD <f>` pops `value`
+      then the receiver and writes `obj->fields[f]=value` (match Stage 4's emit order). The `shared_ptr<Obj>`
+      gives reference semantics for free — so `c.inc()` mutating `this`'s `value` is visible to `c.get()`.
+- [ ] **`READ <type>`:** read one whitespace-delimited token from stdin and push it as the declared type —
+      `int`→`mkInt(stol(tok))`, `float`→a `FLOAT` Value via `stod(tok)`, `boolean`→`mkBool(tok=="true")`
+      (Stage 3.5 step 6 puts the type on the instruction). The following `STORE` writes it into the target.
 - [ ] **`main(argc,argv)`:** `if (argc<2) …usage…;` open `argv[1]`, check the header line equals your magic
       string, load into `methods`, then run from `methods["main"]` as above.
 - [ ] Add an optional **trace mode** (e.g. `--trace`): before each dispatch, print `pc`, the opcode, and
@@ -751,10 +869,10 @@ moved into the stage that owns the relevant layer; nothing here is dropped:
 
 | Old Stage-6 subgoal | Now lives in |
 |---|---|
-| Type/class context (`classNames`, `varTypes`) | **Stage 2 (continued)** — done |
-| `CallMethod` (both forms), arrays, `LengthOf` | **Stage 2 (continued)** — done (✅ with bug #2 to fix) |
-| `Array` literal → `NEW_ARRAY` | **Stage 2 (continued)** — to do |
-| Classes/fields/methods + parameter binding + `this` | **Stage 2 (continued)** — clarified, to do |
+| Type/class context (`classNames`, `varTypes`) | **Stage 2** — ✅ done |
+| `CallMethod` (both forms), arrays, `LengthOf` | **Stage 2** — ✅ done |
+| `Array` literal → `NEW_ARRAY` | **Stage 2** — ✅ done |
+| Classes/fields/methods + parameter binding + `this` | **Stages 2 & 3.5** — ✅ done |
 | Bytecode for `CALL`/`PARAM`/`NEW_OBJECT`/fields/arrays | **Stage 4** — to do |
 | Interpreter `CALL`/`RETURN`/recursion + heap arrays/objects | **Stage 5** — to do |
 
@@ -787,20 +905,24 @@ name (decision #3). Jumps name a label resolved to an instruction index at load 
 | `JMP` | label | set pc to label |
 | `JMP_FALSE` | label | pop; if false, set pc to label |
 | `PARAM` | — | mark top of stack as the next call argument |
-| `CALL` | name, argc | call a method/self-method with `argc` args |
-| `NEW_OBJECT` | className | construct, push reference |
+| `CALL` | name, argc | call method; resolved at run time as `(receiver's class)::name`, receiver is the trailing arg (decision #7) |
+| `NEW_OBJECT` | className | construct (tag object with its class), push reference |
 | `GET_FIELD` / `SET_FIELD` | fieldName | object field read/write |
 | `NEW_ARRAY` | — / size | allocate array, push reference |
 | `ARRAY_LOAD` / `ARRAY_STORE` | — | indexed read/write (array + index on stack) |
 | `ARRAY_LEN` | — | push array length |
-| `PRINT` / `READ` | — | I/O on top of stack |
+| `PRINT` | — | print top of stack |
+| `READ` | type | read a token from stdin as `type` (int/float/boolean), push it |
 | `RETURN` | — | pop frame, push return value into caller |
 | `HALT` | — | stop (end of `main`) |
 
 **Text file format (keep it simple and round-trippable):** a header line (e.g. a magic string), then per
-method a `method <name> <argc>` line, its instructions one per line (`label:` on its own or prefixing an
-instruction), ending with a terminator. Generate and parse with matching routines; diff a known-good
-`test1.cpm` output early so the format stays consistent.
+method a `method <name> <argc>` line (`<name>` is `Class::method` or `main`, decision #7), a `params …`
+line listing parameter names in binding order (`[declared params…, this]` for class methods), its
+instructions one per line (`label:` on its own or prefixing an instruction), and a per-method terminator —
+`HALT` for `main`, an implicit `RETURN` for every other method (so `void`/return-less methods still stop).
+Generate and parse with matching routines; diff a known-good `test1.cpm` output early so the format stays
+consistent.
 
 > *Reference (optional):* if you want to see one concrete file format and dispatch loop, Filip's
 > [filips/readme](filips/readme) and [filips/interpreter.cpp](filips/interpreter.cpp) are examples — but
@@ -817,7 +939,8 @@ instruction), ending with a terminator. Generate and parse with matching routine
   evaluate `a op b`, **push a, push b, emit op** (op pops two, pushes one). An expression tree becomes a
   post-order traversal — load operands, then the op, then store the result.
 - **Jumps = labels + edges.** In your model a jump is a TAC op carrying a label *and* a CFG edge. Keep the
-  two in sync (always `addEdge` when you emit a jump or fall through). Debug control flow via the `.dot`.
+  two in sync (`addEdge` for every edge). Every edge is an **explicit** jump — `IF_FALSE` is always paired
+  with a `GOTO` for its true branch, so no block relies on fall-through. Debug control flow via the `.dot`.
   At bytecode time, labels become instruction indices; at run time, a jump just sets the pc.
 - **Scoping / locals.** C+- has lexical block scopes, but a method's locals can be flattened into one
   name-keyed store per call frame. Recursion stays correct because each `CALL` gets a fresh frame. ⚠

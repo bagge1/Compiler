@@ -28,6 +28,7 @@ struct BasicBlock{
 
 struct MethodIR{
 	string name;
+	vector<string> params;
 	vector<BasicBlock*> basicBlocks;
 };
 
@@ -36,7 +37,6 @@ class IntermediateRepresentation{
 	private:
 		int tempCounter = 0;
 		int labelCounter = 0;
-		int blockCounter = 0;
 
 		// all methods
 		vector<MethodIR*> methods;
@@ -44,15 +44,16 @@ class IntermediateRepresentation{
 		// current context
 		BasicBlock* currentBlock = nullptr;
 		MethodIR* currentMethod = nullptr;
-		string currentClass;
+		string currentClass;								// stores the current class name
+		set<string> classNames;								// stores all the class names
 		stack<pair<BasicBlock*, BasicBlock*>> loopBlocks;
-		set<string> classNames;
-		unordered_map<string, string> varTypes;
-		unordered_map<string, set<string>> classFields;
+		unordered_map<string, string> varTypes;				// stores current method's variable types
+		unordered_map<string, set<string>> classFields;		// stores class level variables
 
 		// helper functions
 		string newTemp();		// returns t0, t1, t2, ...
 		string newLabel();		// returns L0, L1, L2, ...
+		bool isTerminated(BasicBlock* block);
 
 		// functions
 		void emit(string op, string arg1, string arg2, string result);
@@ -71,12 +72,16 @@ class IntermediateRepresentation{
 
 		BasicBlock* newBlock();
 
+		void generateByteCode();
+
+		void emitByteCode();
+
 	public:
 		IntermediateRepresentation();
 		~IntermediateRepresentation();
 		void generate_ir(Node* node);
 		void printTAC();
-		void writeCFG(string& filename);
+		void writeCFG(string filename = "IR_tree.dot");
 };
 
 

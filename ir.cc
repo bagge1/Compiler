@@ -36,6 +36,13 @@ BasicBlock *IntermediateRepresentation::newBlock()
 	return b;
 }
 
+bool IntermediateRepresentation::isTerminated(BasicBlock* block)
+{
+	if (block->instructions.empty()) return false;
+	const string& op = block->instructions.back().op;
+	return op == "GOTO" || op == "RETURN";			// already jumps, dont append another GOTO
+}
+
 void IntermediateRepresentation::emit(string op, string arg1, string arg2, string result)
 {
 	currentBlock->instructions.push_back({op, arg1, arg2, result});
@@ -59,6 +66,7 @@ string IntermediateRepresentation::generateExpression(Node* node)
 	}
 
 	if (type == "ID"){
+		// Is the variable not declared locally / a parameter? | currently inside a class method? | is the variable a field of the current class?
 		if (!varTypes.count(node->value) && !currentClass.empty() && classFields[currentClass].count(node->value)){
 			string t = newTemp();
 			emit("GET_FIELD", "this", node->value, t);
@@ -120,8 +128,14 @@ string IntermediateRepresentation::generateExpression(Node* node)
 			argc++;
 		}
 		string t = newTemp();
-		if (classNames.count(node->value)) emit("NEW_OBJECT", node->value, "", t);
-		else emit("CALL", node->value, to_string(argc), t);
+		if (classNames.count(node->value)){
+			 emit("NEW_OBJECT", node->value, "", t);
+			} else if (!currentClass.empty()){
+				emit("PARAM", "this", "", "");
+				emit("CALL", node->value, to_string(argc + 1), t);
+			} else {
+				emit("CALL", node->value, to_string(argc), t);
+			}
 		return t;
 	}
 
@@ -180,7 +194,9 @@ void IntermediateRepresentation::generateStatement(Node* node)
 	}
 
 	if (type == "Read"){
-		emit("READ", node->children.front()->value, "", "");
+		string name = node->children.front()->value;
+		string vType = varTypes.count(name) ? varTypes[name] : "int";
+		emit("READ", name, vType, "");
 		return;
 	}
 
@@ -205,13 +221,17 @@ void IntermediateRepresentation::generateStatement(Node* node)
 		BasicBlock* joinBlock = newBlock();
 
 		emit("IF_FALSE", cond, "", joinBlock->label);
+		emit("GOTO", "", "", thenBlock->label);
 		addEdge(currentBlock, thenBlock);
 		addEdge(currentBlock, joinBlock);
 
 		setCurrentBlock(thenBlock);
 		generateStatement(node->children.back());
-		emit("GOTO", "", "", joinBlock->label);
-		addEdge(currentBlock, joinBlock);
+		if (!isTerminated(currentBlock)){
+			emit("GOTO", "", "", joinBlock->label);
+			addEdge(currentBlock, joinBlock);
+		}
+		
 
 		setCurrentBlock(joinBlock);
 		return;
@@ -230,18 +250,27 @@ void IntermediateRepresentation::generateStatement(Node* node)
 		BasicBlock* joinBlock = newBlock();
 
 		emit("IF_FALSE", cond, "", elseBlock->label);
+		emit("GOTO", "", "", thenBlock->label);
 		addEdge(currentBlock, thenBlock);
 		addEdge(currentBlock, elseBlock);
 
 		setCurrentBlock(thenBlock);
-		generateStatement(thenNode->children.front());
-		emit("GOTO", "", "", joinBlock->label);
-		addEdge(currentBlock, joinBlock);
+		for (Node* stmt : thenNode->children){
+			generateStatement(stmt);
+		}
+		if (!isTerminated(currentBlock)){
+			emit("GOTO", "", "", joinBlock->label);
+			addEdge(currentBlock, joinBlock);
+		}
+		
 
 		setCurrentBlock(elseBlock);
 		generateStatement(elseNode->children.front());
-		emit("GOTO", "", "", joinBlock->label);
-		addEdge(currentBlock, joinBlock);
+		if (!isTerminated(currentBlock)){
+			emit("GOTO", "", "", joinBlock->label);
+			addEdge(currentBlock, joinBlock);
+		}
+		
 
 		setCurrentBlock(joinBlock);
 		return;
@@ -253,7 +282,7 @@ void IntermediateRepresentation::generateStatement(Node* node)
 			if (child->type == "Initialization") init = child->children.front();
 			else if (child->type == "Condition") cond = child->children.front();
 			else if (child->type == "Update") update = child->children.front();
-			else if (child->type == "LoopBody") body = child->children.front();
+			else if (child->type == "LoopBody") body = child;
 		}
 		if (init) generateStatement(init);
 
@@ -266,15 +295,23 @@ void IntermediateRepresentation::generateStatement(Node* node)
 
 		setCurrentBlock(condBlock);
 		if (cond) emit("IF_FALSE", generateExpression(cond), "", afterBlock->label);
+		emit("GOTO", "", "", bodyBlock->label);
 		addEdge(condBlock, bodyBlock);
 		addEdge(condBlock, afterBlock);
 
 		loopBlocks.push({afterBlock, condBlock});
 		setCurrentBlock(bodyBlock);
-		if (body) generateStatement(body);
+		if (body){
+			for (Node* stmt : body->children){
+				generateStatement(stmt);
+			}
+		}
 		if (update) generateStatement(update);
-		emit("GOTO", "", "", condBlock->label);
-		addEdge(currentBlock, condBlock);
+		if (!isTerminated(currentBlock)){
+			emit("GOTO", "", "", condBlock->label);
+			addEdge(currentBlock, condBlock);
+		}
+		
 		loopBlocks.pop();
 
 		setCurrentBlock(afterBlock);
@@ -282,57 +319,59 @@ void IntermediateRepresentation::generateStatement(Node* node)
 	}
 
 	if (type == "Break"){
-		auto block = loopBlocks.top().first;
+		BasicBlock* block = loopBlocks.top().first;
 		emit("GOTO", "", "", block->label);
 		addEdge(currentBlock, block);
 		return;
 	}
 
 	if (type == "Continue"){
-		auto block = loopBlocks.top().second;
+		BasicBlock* block = loopBlocks.top().second;
 		emit("GOTO", "", "", block->label);
 		addEdge(currentBlock, block);
 		return;
 	}
+
+	generateExpression(node);
 }
 
 void IntermediateRepresentation::generateMethod(Node* node)
 {
 	if (node == nullptr) return;
+	varTypes.clear();
 
-	MethodIR* method = new MethodIR{node->value};
+	string name;
+	if (node->type == "Main method" || node->type == "StatementBlock") name = "main";
+	else if (currentClass.empty()) name = node->value;
+	else name = currentClass + "::" + node->value;
 
+	MethodIR* method = new MethodIR{name};
 	currentMethod = method;
-
 	methods.push_back(method);
-
-	BasicBlock* block = newBlock();
-
-	setCurrentBlock(block);
+	setCurrentBlock(newBlock());
 
 	for (Node* child : node->children){
 		if (child->type == "Parameters"){
-			if (!currentClass.empty()) varTypes["this"] = currentClass;
 			for (Node* param : child->children){
 				varTypes[param->value] = param->children.front()->value;
-			}
-		} else if (child->type == "StatementBlock"){
-			for (Node* stmt : child->children){
-				generateStatement(stmt);
+				method->params.push_back(param->value);
 			}
 		}
 	}
-}
+	if (!currentClass.empty()){
+		varTypes["this"] = currentClass;
+		method->params.push_back("this");
+	}
 
-void IntermediateRepresentation::addEdge(BasicBlock* from, BasicBlock* to)
-{
-	from->successors.push_back(to);
-	to->predecessors.push_back(from);
-}
-
-void IntermediateRepresentation::setCurrentBlock(BasicBlock* block)
-{
-	currentBlock = block;
+	Node* body = (node->type == "StatementBlock") ? node : nullptr;
+	if (!body){
+		for (Node* child : node->children){
+			if (child->type == "StatementBlock") body = child;
+		}
+	}
+	if (body){
+		for (Node* stmt : body->children) generateStatement(stmt);
+	}
 }
 
 void IntermediateRepresentation::generate_ir(Node* node)
@@ -340,10 +379,10 @@ void IntermediateRepresentation::generate_ir(Node* node)
 	for (Node* child : node->children){
 		if (child->type == "Class"){
 			classNames.insert(child->value);
-			for (Node* member : child->children){
-				if (member->type == "Variable" || member->type == "VolatileVariable"){
-					classFields[child->value].insert(member->value);
-				} 
+			for (Node* classChild : child->children){
+				if (classChild->type == "Variable" || classChild->type == "VolatileVariable"){
+					classFields[child->value].insert(classChild->value);
+				}
 			}
 		}
 	}
@@ -359,11 +398,25 @@ void IntermediateRepresentation::generate_ir(Node* node)
 					generateMethod(classChild);
 				}
 			}
+		} else if (child->type == "StatementBlock"){
+			currentClass = "";
+			generateMethod(child);
 		}
 	}
 }
 
-void IntermediateRepresentation::writeCFG(string& filename)
+void IntermediateRepresentation::addEdge(BasicBlock* from, BasicBlock* to)
+{
+	from->successors.push_back(to);
+	to->predecessors.push_back(from);
+}
+
+void IntermediateRepresentation::setCurrentBlock(BasicBlock* block)
+{
+	currentBlock = block;
+}
+
+void IntermediateRepresentation::writeCFG(string filename)
 {
 	std::ofstream out(filename);
 	out << "digraph CFG {\n node [shape=box]; \n";
@@ -400,4 +453,15 @@ void IntermediateRepresentation::printTAC()
 			}
 		}
 	}
+}
+
+
+void IntermediateRepresentation::generateByteCode()
+{
+	
+}
+
+void IntermediateRepresentation::emitByteCode()
+{
+
 }
