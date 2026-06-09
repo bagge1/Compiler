@@ -32,6 +32,9 @@ struct MethodIR{
 	vector<BasicBlock*> basicBlocks;
 };
 
+class ByteCode{
+
+};
 
 class IntermediateRepresentation{
 	private:
@@ -72,9 +75,7 @@ class IntermediateRepresentation{
 
 		BasicBlock* newBlock();
 
-		void generateByteCode();
-
-		void emitByteCode();
+		void emitByteCode(std::ofstream& out, TACinstructions& in);
 
 	public:
 		IntermediateRepresentation();
@@ -82,6 +83,7 @@ class IntermediateRepresentation{
 		void generate_ir(Node* node);
 		void printTAC();
 		void writeCFG(string filename = "IR_tree.dot");
+		void generateByteCode(string filename = "bytecode.txt");
 };
 
 

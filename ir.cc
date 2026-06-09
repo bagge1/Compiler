@@ -455,13 +455,64 @@ void IntermediateRepresentation::printTAC()
 	}
 }
 
-
-void IntermediateRepresentation::generateByteCode()
+static bool isInt(const string& s)
 {
-	
+	return !s.empty() && s.find_first_not_of("-0123456789")==string::npos;
 }
 
-void IntermediateRepresentation::emitByteCode()
+static bool isFloat(const string& s)
 {
+	return s.find('.') != string::npos && isInt(s.substr(0, s.find('.')));
+}
 
+void emitLoad(std::ofstream& out, const string& s)
+{
+	// determine if literal and what kind
+	if (s.empty()) return;
+	if (isInt(s)) out << "PUSH_INT " << s << "\n";
+	else if (isFloat(s)) out << "PUSH_FLOAT " << s << "\n";
+	else if (s=="true" || s=="false") out << "PUSH_BOOL " << s << "\n";
+	// or variable
+	else out << "LOAD " << s << "\n";
+}
+
+void IntermediateRepresentation::generateByteCode(string filename)
+{
+	std::ofstream out(filename);
+	out << "CPMBC\n";
+	for (MethodIR* m : methods){
+		out << "method " << m->name << " " << m->params.size() << "\n";
+		out << "params";
+		for (auto& p : m->params) out << " " << p;
+		out << "\n";
+		for (BasicBlock* b : m->basicBlocks){
+			out << b->label << ":\n";
+			for (auto& in : b->instructions) emitByteCode(out, in);
+		}
+		out << (m->name == "main" ? "HALT" : "RETURN") << "\n";
+		out << "end\n";
+	}
+}
+
+void IntermediateRepresentation::emitByteCode(std::ofstream& out, TACinstructions& in)
+{
+	const string& op = in.op;
+	if (op == "GOTO") out << "JMP " << in.result << "\n";
+	else if (op == "IF_FALSE") {emitLoad(out, in.arg1); out << "JMP_FALSE " << in.result << "\n";}
+	else if (op == "ASSIGN") {emitLoad(out, in.arg1); out << "STORE " << in.result << "\n";}
+	else if (op == "PRINT") {emitLoad(out, in.arg1); out << "PRINT\n";}
+	else if (op == "READ") {out << "READ " << in.arg2 << "\nSTORE " << in.arg1 << "\n";}
+	else if (op == "RETURN") {emitLoad(out, in.arg1); out << "RETURN\n";}
+	else if (op == "NOT") {emitLoad(out, in.arg1); out << "NOT\nSTORE " << in.result << "\n";}
+	// calls/arrays/object branches
+	else if (op == "PARAM") {emitLoad(out, in.arg1); out << "PARAM\n";}
+	else if (op == "CALL") {out << "CALL " << in.arg1 << " " << in.arg2 << "\nSTORE " << in.result << "\n";}
+	else if (op == "NEW_OBJECT") {out << "NEW_OBJECT " << in.arg1 << "\nSTORE " << in.result << "\n";}
+	else if (op == "NEW_ARRAY") {emitLoad(out, in.arg1); out << "NEW_ARRAY\nSTORE " << in.result << "\n";}
+	else if (op == "ARRAY_LOAD") {emitLoad(out, in.arg1); emitLoad(out, in.arg2); out << "ARRAY_LOAD\nSTORE " << in.result << "\n";}
+	else if (op == "ARRAY_STORE") {emitLoad(out, in.arg1); emitLoad(out, in.arg2); emitLoad(out, in.result); out << "ARRAY_STORE\n";}
+	else if (op == "ARRAY_LEN") {emitLoad(out, in.arg1); out << "ARRAY_LEN\nSTORE " << in.result << "\n";}
+	else if (op == "GET_FIELD") {emitLoad(out, in.arg1); out << "GET_FIELD " << in.arg2 << "\nSTORE " << in.result << "\n";}
+	else if (op == "SET_FIELD") {emitLoad(out, in.arg1); emitLoad(out, in.result); out << "SET_FIELD " << in.arg2 << "\n";}
+	else {emitLoad(out, in.arg1); emitLoad(out, in.arg2); out << op << "\nSTORE " << in.result << "\n";}
 }

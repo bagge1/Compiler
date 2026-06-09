@@ -158,10 +158,32 @@ subgoal (IR → Stages 2–3, bytecode → Stage 4, interpreter → Stage 5).
 - **Stage 3.5 (all of §3 Stage 3.5) is done** — see that section for the per-step checkmarks and the
   verified `CALL`/`this`/field output.
 
-**What's left:** **Stage 4** (bytecode generation/serialization) and **Stage 5** (interpreter) — not
-started. Both use the runtime-dispatch / class-tag ABI from decision #7. The IR is self-complete (every
-block ends in an explicit `GOTO`/`IF_FALSE`+`GOTO`/`RETURN`), so Stage 4 is a straight 1:1 block-by-block
-translation with no fall-through to manage.
+**Stage 4 (bytecode generation/serialization) is now done too** (2026-06-09) — all of `test1`–`test8`
+serialize to a `bytecode.txt` that matches the §4.3 format, with test1 hand-traceable line-for-line against
+its TAC. See that stage for the three bugs fixed during verification.
+
+**Stage 5 (interpreter) is now under way (started 2026-06-09).** [interpreter.hh](interpreter.hh) is
+complete — the `Obj`/`Value`/`Instr`/`Method`/`Frame` type definitions match the plan (`obj` is correctly
+`shared_ptr<Obj>`; `arr` is `shared_ptr<vector<Value>>`; all includes present). `makeInt`/`makeBool` live in
+[interpreter.cc](interpreter.cc) (not the header), so the header has no duplicate-symbol risk.
+
+**✅ M1 is DONE and verified (2026-06-09).** The full pipeline runs end-to-end against test1:
+`./compiler test_files/valid/test1.cpm && make interpreter && ./interpreter bytecode.txt` prints **`508.5`**
+(= `(2^8 + 10 - 2*6 + 1.0/4.0) * 2`, a float — confirming float arithmetic, `int^int` staying int, and the
+operand order are all correct). The loader, the M1 dispatch core (`PUSH_*`, `LOAD`/`STORE`,
+`ADD SUB MUL DIV POW`, `PRINT`, `RETURN` no-op, `HALT`), the `numOp`/`asDouble`/`printValue` helpers, and the
+real `load → run` `main` are all in place. The four M1 blockers found during bring-up were all fixed by the
+user: the `PUSH_BOOL` stray push (compile error), `numOp`'s missing `v.f = r` (floats returned 0), the
+reversed `a/b` pop order in the binary branches (negated SUB/DIV/POW), and the temporary counting `main`
+(replaced with one that calls `run`). The loader keys methods by the header string Stage 4 actually emits
+(`CPMBC`, not the plan's `CPMBC v1`); it skips the header line regardless, so this is harmless.
+
+**Stage 5 is COMPLETE (2026-06-09) — the full compiler → bytecode → interpreter pipeline runs all of
+test1–test8.** Milestones: **M1 ✅** (test1 → `508.5`), **M2 ✅** (jumps + compares + booleans + `READ`; test3
+→ `120`, test4 divisors; the M1 no-op `RETURN` fall-through bug fixed here → `break`), **M3 ✅** (`stack<Frame>`
++ `PARAM`/`CALL`/`RETURN` + `NEW_OBJECT`; test6 fib 1..16 — recursion verified), **M4 ✅** (fields + arrays;
+test8 → `14`/`5`, test5 → sorted floats, test7 → single-partition `QS` output, hand-trace-matched). **The whole
+backend (Stages 0–5) is now done and verified.** Remaining optional polish: a `--trace` mode for debugging.
 
 ---
 
@@ -653,15 +675,116 @@ trailing `if`).
       `CALL inc 1`, `CALL get 1`. Method headers print as `Calculator::sumArray:`, `Counter::inc:`, `main:`
       (the **definition** keys are qualified; the **call sites** are bare — that's decision #7).
 
-### Stage 4 — Bytecode generation & serialization
+### Stage 4 — Bytecode generation & serialization — ✅ DONE (2026-06-09)
 
 **Goal:** lower the CFG to your stack-bytecode instruction set and write a readable `bytecode.txt`.
 
-**Files:** [ir.cc](ir.cc) (a new `generateByteCode` + `emitBytecode`); see §4 for the instruction set.
+**Status:** complete and verified against `test1`–`test8` (all 8 compile and serialize). `generateByteCode`
+([ir.cc:479-495](ir.cc#L479-L495)) is the driver; `emitByteCode` ([ir.cc:497-518](ir.cc#L497-L518)) lowers
+one quadruple. test1's `bytecode.txt` now matches the §4.3 worked example line-for-line (each arithmetic
+quadruple → its `load/load/op/store` quartet). Three bugs were found and fixed during verification: the
+generic-op fall-through `else` was missing (so every `ADD/MUL/…` emitted nothing — t7 was loaded but never
+computed); `ARRAY_STORE` never loaded its value operand (`in.result`); and `CALL`'s `STORE` lacked a space.
+One open cosmetic choice: the header is `CPMBC` (not the plan's `CPMBC v1`) — Stage 5's loader must check
+for whichever string is emitted.
 
-- [ ] **Lowering rule (post-order = stack pushes):** each TAC quadruple `{op,arg1,arg2,result}` becomes
-      *load arg1 → load arg2 → emit op → store result*. "Load an operand" = push it: a literal pushes with
-      `PUSH_INT/FLOAT/BOOL`, a name (variable/temp) pushes with `LOAD name`. A helper decides which:
+**Files:** [ir.cc](ir.cc) — fill in the two **already-declared stubs** `generateByteCode` / `emitByteCode`
+([ir.hh:76-78](ir.hh#L76-L78)); see §4 for the instruction set.
+
+#### Where to start (do this before any lowering logic)
+
+The two functions already exist as empty private stubs but **nothing calls them yet** — [main.cc](main.cc)
+stops after `writeCFG`. So the very first job is to get an (almost empty) `bytecode.txt` to appear for
+`test1`, then fill in the per-instruction lowering. The division of labour is:
+
+- **`generateByteCode`** = the *driver*: opens `bytecode.txt`, writes the header, and for each method writes
+  its `method`/`params` header lines, walks `m->basicBlocks` in order printing a `label:` then each block's
+  instructions, and finally the per-method terminator. This is the **public entry point** main.cc calls.
+- **`emitByteCode`** = lowers *exactly one* `TACinstructions` quadruple to its bytecode line(s) (the big
+  `if/else` on `in.op` from the bullets below).
+
+**Step 0a — reconcile the stub signatures.** The stubs are declared no-arg ([ir.hh:76-78](ir.hh#L76-L78)).
+Change them so the driver can take a filename and the per-instruction helper can take the stream + quadruple,
+and **move `generateByteCode` to the `public:` section** (so main.cc can call it, mirroring `writeCFG`):
+
+```cpp
+public:
+    void generateByteCode(string filename = "bytecode.txt");          // driver: walks all methods
+private:
+    void emitByteCode(std::ofstream& out, const TACinstructions& in); // lowers ONE quadruple
+```
+
+**Step 0b — write the driver shell** in [ir.cc](ir.cc). With this in place you should already get a
+well-formed (but instruction-less, until 0c) `bytecode.txt`:
+
+```cpp
+void IntermediateRepresentation::generateByteCode(string filename) {
+    std::ofstream out(filename);
+    out << "CPMBC v1\n";                                       // header / magic string
+    for (MethodIR* m : methods) {
+        out << "method " << m->name << " " << m->params.size() << "\n";
+        out << "params";
+        for (auto& p : m->params) out << " " << p;             // binding order, ends in `this`
+        out << "\n";
+        for (BasicBlock* b : m->basicBlocks) {
+            out << b->label << ":\n";
+            for (auto& in : b->instructions) emitByteCode(out, in);   // 4.1/4.2 fill this
+        }
+        out << (m->name == "main" ? "HALT" : "RETURN") << "\n"; // implicit terminator (issue B)
+        out << "end\n";
+    }
+}
+```
+
+**Step 0c — wire it into the pipeline.** In [main.cc](main.cc), after `ir.writeCFG();`
+([main.cc:86](main.cc#L86)) add one line:
+
+```cpp
+ir.generateByteCode();                 // writes bytecode.txt
+```
+
+Build and run (`make && ./compiler test_files/valid/test1.cpm`). You now have a `bytecode.txt` with the
+header, `method main 0`, `params`, the `BB0:` label, `HALT`, `end` — and empty blocks. **That is your
+anchor.** Everything below just fills `emitByteCode` so those blocks get instructions.
+
+#### The lowering detail (fills `emitByteCode`, in build-up order)
+
+> **Lecture cross-reference ([07_code_generation_and_interpretation.pdf](07_code_generation_and_interpretation.pdf), pp. 8-14).**
+> The lecture's algorithm is *outer loop over methods -> inner loop over TAC instructions*, with a
+> visited-block set (slide 9). Your linear `m->basicBlocks` walk visits each block exactly once, so **you need
+> no visited set** - same result, less bookkeeping. The lecture uses Java-like mnemonics; your set is the
+> **same stack machine** with clearer names:
+>
+> | Lecture (slide 12) | Yours |
+> |---|---|
+> | `iconst v` | `PUSH_INT` / `PUSH_FLOAT` / `PUSH_BOOL` |
+> | `iload n` / `istore n` | `LOAD` / `STORE` (by **name**, not slot index - decision #3) |
+> | `iadd isub imul idiv` | `ADD SUB MUL DIV` |
+> | `ilt iand ior inot` | `LT AND OR NOT` |
+> | `goto i` / `iffalse goto i` | `JMP` / `JMP_FALSE` |
+> | `invokevirtual m` | `CALL` (runtime dispatch on the receiver - decision #7, more general than the lecture's static `m`) |
+> | `ireturn` / `print` / `stop` | `RETURN` / `PRINT` / `HALT` |
+>
+> **Operand order (slide 12): `iadd` pops `v1` then `v2`, pushes `v2 + v1`** - the operand you *load first*
+> ends up *under* the second, so it is the left-hand side. That is why the interpreter does `b=pop(); a=pop()`
+> and computes `a OP b` (Stage 5). It only bites non-commutative ops: `5 - 3` lowers to
+> `PUSH_INT 5 / PUSH_INT 3 / SUB` and **must** yield `2`, not `-2`. Get this backwards and every
+> subtraction/division/comparison silently flips.
+>
+> *Serialization (slide 14):* the lecture offers (1) a serialized class hierarchy or (2) printing each
+> instruction to a file. You use **(2)** - fine here because your format is *label-keyed text* (jumps name
+> `BBn`, not numeric offsets), which parses back as easily as (1).
+
+> Put the `isInt`/`isFloat`/`emitLoad` helpers below as **file-static** functions at the top of
+> [ir.cc](ir.cc) (not class members) — `emitByteCode`'s body is just the `if/else` on `in.op` from the next
+> two bullets. There are only **two** lowering groups: **4.1** (arithmetic + control flow + print/read/return
+> — verify **test1**, **test3**, **test4**) and **4.2** (calls/arrays/objects/fields — verify
+> **test5–test8**).
+
+- [X] **4.1 — straight-line + control-flow ops (post-order = stack pushes):** each TAC quadruple
+      `{op,arg1,arg2,result}` becomes *load arg1 → load arg2 → emit op → store result*. "Load an operand" =
+      push it: a literal pushes with `PUSH_INT/FLOAT/BOOL`, a name (variable/temp) pushes with `LOAD name`.
+      A helper decides which:
 
       ```cpp
       // "is this operand a literal, and which kind?" — drives PUSH vs LOAD
@@ -676,11 +799,12 @@ trailing `if`).
           else                        out << "LOAD " << a << "\n";   // a variable or temp
       }
       ```
-      Then lower each quadruple. The binary-op names (`ADD`,`SUB`,…,`LT`,…) are **identical** in TAC and
-      bytecode, so they need no mapping; only a few ops have special shapes:
+      This `if/else` **is the body of `emitByteCode`** — it lowers the single `in` it was handed (the driver's
+      block loop calls it once per quadruple). The binary-op names (`ADD`,`SUB`,…,`LT`,…) are **identical** in
+      TAC and bytecode, so they need no mapping; only a few ops have special shapes:
 
       ```cpp
-      for (auto& in : b->instructions) {
+      void IntermediateRepresentation::emitByteCode(std::ofstream& out, const TACinstructions& in) {
           const string& op = in.op;
           if      (op == "GOTO")     { out << "JMP " << in.result << "\n"; }
           else if (op == "IF_FALSE") { emitLoad(out, in.arg1); out << "JMP_FALSE " << in.result << "\n"; }
@@ -689,11 +813,12 @@ trailing `if`).
           else if (op == "READ")     { out << "READ " << (in.arg2.empty()?"int":in.arg2) << "\nSTORE " << in.arg1 << "\n"; }
           else if (op == "RETURN")   { emitLoad(out, in.arg1); out << "RETURN\n"; }
           else if (op == "NOT")      { emitLoad(out, in.arg1); out << "NOT\nSTORE " << in.result << "\n"; }
+          // … 4.2 call/array/object branches go here …
           else { emitLoad(out, in.arg1); emitLoad(out, in.arg2); out << op << "\nSTORE " << in.result << "\n"; }
       }
       ```
-- [ ] **Lower the call/object/array ops too** (folded in from the old Stage 6 — they're just more quadruple
-      shapes). The IR already emits these, so the bytecode writer must handle them:
+- [X] **4.2 — call/object/array/field ops** (just more quadruple shapes). The IR already emits these, so add
+      these branches to `emitByteCode` (where the `// … 4.2 …` comment sits above):
 
       ```cpp
       else if (op == "PARAM")       { emitLoad(out, in.arg1); out << "PARAM\n"; }
@@ -707,25 +832,27 @@ trailing `if`).
       else if (op == "SET_FIELD")   { emitLoad(out, in.arg1); emitLoad(out, in.result); out << "SET_FIELD " << in.arg2 << "\n"; }
       ```
       (Field/`this` operand layout depends on how Stage 2's field bullet emits `GET_FIELD`/`SET_FIELD`; keep
-      the writer and that emit in sync.) `RETURN` already lowers above; emit `HALT` only at the end of `main`.
-- [ ] Walk the blocks **in creation order** (`method->basicBlocks`), printing a `label:` marker then the
-      lowered instructions for each. Iterating that vector visits every block **exactly once**, which
-      satisfies the "don't re-emit a block" requirement without a separate visited set.
-- [ ] **No fall-through to worry about — translate 1:1.** The IR is self-complete: every `IF_FALSE` is
-      immediately followed by an explicit `GOTO` to its *true* target (added in the control-flow cases on
-      2026-06-09), so **every block ends in an explicit transfer** (`GOTO`/`IF_FALSE`+`GOTO`/`RETURN`) and no
-      block depends on physical adjacency. That means the walk is a straight 1:1 translation — `GOTO`→`JMP`,
-      `IF_FALSE`→`JMP_FALSE` — and block layout is irrelevant. (E.g. `QS::Sort` `BB14` ends `IF_FALSE t27 ->
-      BB18` / `GOTO -> BB17`, both targets explicit, even though `BB15`/`BB16` sit between BB14 and BB17.)
-- [ ] **Emit an implicit terminator per method (issue B).** After a method's blocks, append `HALT` for
-      `main` and `RETURN` for every other method — **unconditionally is fine** (a trailing `RETURN` after an
-      existing one is unreachable, not wrong). Without this, `void`/return-less methods (test8's `init`/`inc`)
-      have no terminator and the interpreter's `pc++` runs off the end of `code[]`. The trailing `RETURN`
-      with nothing on the data stack yields a default value (the caller's result temp is discarded anyway).
-- [ ] **`emitBytecode`:** wrap the walk in the §4 text format — a header line, a `method <name> <argc>`
-      line per method, **a `params …` line listing the method's parameter names in binding order**
-      (`[declared params…, this]` for class methods — straight from `MethodIR::params`, Stage 3.5 step 1),
-      then the labelled instructions, then a terminator. For a tiny `x := 2 + 3  print(x)`:
+      the writer and that emit in sync.) `RETURN` lowers in 4.1; the implicit `HALT`/`RETURN` terminator is
+      already appended by the driver (step 0b).
+
+> **Already handled by the driver (step 0b) — don't re-do these, just understand why they're correct:**
+>
+> - **Block walk / "don't re-emit a block".** The driver iterates `m->basicBlocks` in creation order,
+>   visiting every block **exactly once** — no separate visited set needed.
+> - **Translate 1:1, no fall-through.** The IR is self-complete: every `IF_FALSE` is immediately followed by
+>   an explicit `GOTO` to its *true* target (control-flow cases, 2026-06-09), so **every block ends in an
+>   explicit transfer** and no block depends on physical adjacency. The walk is a straight 1:1 translation —
+>   `GOTO`→`JMP`, `IF_FALSE`→`JMP_FALSE` — block layout is irrelevant. (E.g. `QS::Sort` `BB14` ends
+>   `IF_FALSE t27 -> BB18` / `GOTO -> BB17`, both targets explicit, even though `BB15`/`BB16` sit between.)
+> - **Implicit terminator per method (issue B).** The driver appends `HALT` for `main`, `RETURN` for every
+>   other method — **unconditionally is fine** (a trailing `RETURN` after an existing one is unreachable, not
+>   wrong). Without it, `void`/return-less methods (test8's `init`/`inc`) have no terminator and the
+>   interpreter's `pc++` runs off the end of `code[]`.
+
+- [X] **4.3 — confirm the file format.** The driver (step 0b) wraps the walk in the §4 text format: a header
+      line, a `method <name> <argc>` line, a `params …` line (parameter names in binding order
+      `[declared params…, this]`, from `MethodIR::params`), the labelled instructions, then the terminator.
+      For a tiny `x := 2 + 3  print(x)` the output should read:
 
       ```text
       CPMBC v1            <- header (your magic string)
@@ -745,122 +872,245 @@ trailing `if`).
       HALT
       end                 <- terminator
       ```
-- [ ] **Verify:** `bytecode.txt` for `test1.cpm` is hand-traceable and matches the TAC line-for-line
-      (each `ADD/MUL/…` quadruple expands to its load/load/op/store quartet).
+- [X] **Verify:** `bytecode.txt` for `test1.cpm` is hand-traceable and matches the TAC line-for-line
+      (each `ADD/MUL/…` quadruple expands to its load/load/op/store quartet). Confirmed 2026-06-09 for all of
+      `test1`–`test8`.
 
 ### Stage 5 — The bytecode interpreter (separate binary)
 
-**Goal:** a standalone program that loads `bytecode.txt` and executes it on a data stack + a call stack.
+**Goal:** a standalone program ([interpreter.cc](interpreter.cc) + [interpreter.hh](interpreter.hh), built by
+`make interpreter`, links **only** these two files — never the parser) that loads `bytecode.txt` and runs it.
 
-**Files:** new `interpreter.hh`, `interpreter.cc` (built by the `interpreter:` target from Stage 0).
+**Status (2026-06-09): M1 ✅ done & verified** (test1 → `508.5`). M2/M3/M4 below are the remaining work — each
+is a small set of opcodes that slot into the **same** `if/else` in `run()`; nothing structural changes between
+milestones. Build one, verify it against its test files, move to the next.
 
-- [ ] **Runtime value + instruction + frame types.** A `Value` is *runtime* data (not the TAC strings).
-      `Instr` is one parsed line; `Method` bundles its code with its `label → index` map; `Frame` is one
-      call's state:
+#### Mental model (the whole machine, in four parts)
+
+The interpreter is a tiny **stack VM**. It knows nothing about C+-, the grammar, or the AST — that was all
+spent producing `bytecode.txt`. Its entire world is four things moving:
+
+- **`ds` — the data stack.** Scratch space for *one expression*. Stage 4 lowered every expression to
+  post-order (`push a, push b, op`), so an operator always finds its operands on top: pop them, compute, push
+  the one result. `(2+3)*4` → push 2, push 3, `ADD`→5, push 4, `MUL`→20. `ds` is **empty between statements**
+  (a `PRINT`/`STORE`/`RETURN` drains whatever the expression pushed).
+- **`fr.locals` — the durable per-call memory** (`map<string,Value>`). `LOAD name` copies a local *onto* `ds`;
+  `STORE name` copies the top of `ds` *back into* `locals`. Temps (`t0`) and user variables (`x`) use the same
+  two opcodes — no special case (decision #3, name-keyed locals).
+- **`fr.pc` — the instruction pointer.** "Execute" = `do code[pc]; pc++`. The *only* opcodes that set `pc`
+  differently are jumps (M2) and call/return (M3). Stage 4 made every block end in an explicit jump, so block
+  *layout* never matters — you only ever follow `pc`.
+- **`callStack` — suspended callers** (added in M3). A call needs its own `locals` and the caller must resume
+  at the right `pc`, so a `Frame` bundles `{method, pc, locals}`; calling pushes the caller and starts a fresh
+  frame, `RETURN` pops back. Each call gets a **fresh `locals`** — that is the entire reason recursion works.
+
+**Two stacks, not one:** `ds` carries values *between instructions*; `callStack` carries *suspended methods*.
+`ds` is **shared** across calls on purpose — a callee leaves its return value on the same `ds` the caller
+reads, and the caller's half-finished operands sit safely below it (each body is stack-balanced).
+
+**`Value` is a tagged record** (`INT/FLOAT/BOOL/ARRAY/OBJ`). Numbers/bools are stored by value; arrays and
+objects sit behind a `shared_ptr`, so passing one copies the *reference*, not the contents — that is what
+makes `c.inc()` visible to a later `c.get()` (reference semantics, no manual `delete`). `arr` is
+`shared_ptr<vector<Value>>` (many values); `obj` is `shared_ptr<Obj>` where `Obj = {cls, fields}` (one record).
+
+---
+
+#### M1 — types, loader, straight-line dispatch ✅ DONE (test1 → `508.5`)
+
+All in [interpreter.hh](interpreter.hh) / [interpreter.cc](interpreter.cc), verified:
+
+- [X] **Types** — `Value`/`Obj`/`Instr`/`Method`/`Frame` in the header (forward-declared `Value` breaks the
+      `Obj`↔`Value` cycle; `obj` is `shared_ptr<Obj>`).
+- [X] **Loader** `load()` — fills `map<string,Method>`; skips the `CPMBC` header; each `BBn:` line records
+      `labels["BBn"] = code.size()` (this index map is what M2's jumps use); pushes one `Instr` per code line.
+- [X] **Dispatch `run()`** — handles `PUSH_INT/FLOAT/BOOL`, `LOAD`, `STORE`, `ADD SUB MUL DIV POW`, `PRINT`,
+      `HALT`; plus helpers `asDouble`/`numOp`/`printValue`. **Carry-forward convention:** binary ops pop
+      `a=pop(), b=pop()` then call `numOp(b, a, op)` so **`b` is the left operand** (matters for `SUB/DIV/POW`).
+      `numOp` keeps §1.6: float if either operand is float, else int (truncating `/`, integer `^`).
+      ⚠ **`RETURN` must *stop* the program, not `fr.pc++`.** A no-op `RETURN` only works when `HALT` happens to
+      sit right after it (true for test1/test3). The compiler can place the return block **mid-stream** (test4's
+      `BB3` is between the loop body and the update block), and a no-op `RETURN` then falls through into the next
+      block and **loops forever**. For M2 use `else if (op=="RETURN") { break; }`; M3 upgrades it to the
+      call-aware version (stop only when `callStack` is empty).
+- [X] **Real `main`** — `load(argv[1], methods); run(methods);`.
+
+**Worked trace (the whole machine in miniature)** — `x := 2 + 3; print(x)`:
+
+```text
+instruction   ds after   locals
+PUSH_INT 2    [2]        {}
+PUSH_INT 3    [2, 3]     {}
+ADD           [5]        {}            # a=pop()=3, b=pop()=2 -> push b+a=5
+STORE t0      []         {t0:5}
+LOAD t0       [5]        {t0:5}
+STORE x       []         {t0:5, x:5}
+LOAD x        [5]        {t0:5, x:5}
+PRINT         []         {t0:5, x:5}   # prints 5
+HALT          --
+```
+
+---
+
+#### M2 — control flow: jumps, comparisons, booleans, `READ` (target: test3, test4) — TODO
+
+The one new idea: **a label is just an index into `code`** — the loader already filled `fr.m->labels`, so a
+jump is nothing but `fr.pc = fr.m->labels[name];`. Everything below slots into the same `if/else` in `run()`.
+
+- [ ] **Jumps.** The only two opcodes that set `pc` themselves (so `JMP` has **no** `fr.pc++`):
 
       ```cpp
-      struct Obj   { string cls; map<string,Value> fields; };           // object knows its class (decision #7)
-      struct Value { enum { INT, FLOAT, BOOL, ARRAY, OBJ } tag; long i=0; double f=0; bool b=false;
-                     shared_ptr<vector<Value>> arr; shared_ptr<Obj> obj; }; // heap refs for arrays/objects
-      struct Instr { string op; vector<string> args; };
-      struct Method { string name; int argc; vector<string> params; vector<Instr> code; map<string,int> labels; };
-      struct Frame  { Method* m; int pc; map<string,Value> locals; };   // name-keyed locals (decision #3)
-
-      Value mkInt(long v)  { Value x; x.tag=Value::INT;  x.i=v; return x; }
-      Value mkBool(bool v) { Value x; x.tag=Value::BOOL; x.b=v; return x; }
+      else if (op=="JMP")       { fr.pc = fr.m->labels[in.args[0]]; }      // unconditional
+      else if (op=="JMP_FALSE") { Value c=pop();                          // pop the condition (a BOOL)
+                                  if (!c.b) fr.pc = fr.m->labels[in.args[0]];  // false -> jump
+                                  else      fr.pc++; }                         // true  -> fall through
       ```
-- [ ] **Loader:** read & verify the header, then per method read lines. A line ending in `:` records a
-      label; otherwise split into opcode + operands. Store methods in a `map<string,Method>`:
+- [ ] **Comparisons** `LT GT LEQ GEQ EQ NE` — pop 2, push a `BOOL`. One helper next to `numOp`:
 
       ```cpp
-      string line;  Method* cur=nullptr;
-      while (getline(in, line)) {
-          if (line.empty()) continue;
-          if (line.rfind("method ",0)==0) { /* parse name+argc */ cur=&methods[name]; cur->name=name; cur->argc=argc; continue; }
-          if (line.rfind("params",0)==0)  { /* split rest into cur->params (Stage 4 emits binding order) */ continue; }
-          if (line=="end") { cur=nullptr; continue; }
-          if (line.back()==':') { cur->labels[line.substr(0,line.size()-1)] = cur->code.size(); continue; }
-          istringstream ss(line); Instr ins; ss >> ins.op;
-          for (string a; ss >> a; ) ins.args.push_back(a);
-          cur->code.push_back(ins);
+      static Value cmpOp(const Value& a, const Value& b, const string& op) {   // a=left, b=right
+          double x=asDouble(a), y=asDouble(b); bool r=false;
+          if      (op=="LT")  r = x <  y;   else if (op=="GT")  r = x >  y;
+          else if (op=="LEQ") r = x <= y;   else if (op=="GEQ") r = x >= y;
+          else if (op=="EQ")  r = x == y;   else if (op=="NE")  r = x != y;
+          return makeBool(r);
       }
       ```
-- [ ] **Dispatch loop:** index `fr.m->code[fr.pc]` and branch on `op`. Jumps set `pc` from the label map;
-      everything else falls through with `pc++`. Give it an **explicit error default** for unknown opcodes,
-      and parse floats with `stod` (not `stoi`):
+      One branch covers all six (`op` is already `"LEQ"` etc.; pass `b`=left, `a`=right like the arith ops):
 
       ```cpp
-      auto pop = [&](){ Value v = ds.top(); ds.pop(); return v; };
-      stack<Value> ds;  Frame fr{ &methods["main"], 0, {} };
-      while (true) {
-          Instr& in = fr.m->code[fr.pc];  const string& op = in.op;
-          if      (op=="PUSH_INT")   { ds.push(mkInt(stol(in.args[0])));            fr.pc++; }
-          else if (op=="PUSH_FLOAT") { Value v; v.tag=Value::FLOAT; v.f=stod(in.args[0]); ds.push(v); fr.pc++; }
-          else if (op=="PUSH_BOOL")  { ds.push(mkBool(in.args[0]=="true"));         fr.pc++; }
-          else if (op=="LOAD")       { ds.push(fr.locals[in.args[0]]);              fr.pc++; }
-          else if (op=="STORE")      { fr.locals[in.args[0]] = pop();               fr.pc++; }
-          else if (op=="ADD")        { Value b=pop(),a=pop(); ds.push(addValues(a,b)); fr.pc++; } // promotes int→float
-          else if (op=="LT")         { Value b=pop(),a=pop(); ds.push(mkBool(asNum(a)<asNum(b))); fr.pc++; }
-          // … SUB MUL DIV POW AND OR NOT GT LEQ GEQ EQ NE follow the same pop-2 / pop-1 shape …
-          else if (op=="JMP")        { fr.pc = fr.m->labels[in.args[0]]; }
-          else if (op=="JMP_FALSE")  { if(!pop().b) fr.pc = fr.m->labels[in.args[0]]; else fr.pc++; }
-          else if (op=="PRINT")      { printValue(pop());                           fr.pc++; }
-          else if (op=="HALT")       { break; }                         // end of main
-          else { cerr << "unknown opcode: " << op << "\n"; exit(1); }   // explicit error default
+      else if (op=="LT"||op=="GT"||op=="LEQ"||op=="GEQ"||op=="EQ"||op=="NE") {
+          Value a=pop(), b=pop(); ds.push(cmpOp(b, a, op)); fr.pc++;
       }
       ```
-      *(`DIV` honors §1.6: if both operands are INT, do integer division; otherwise float.)*
-- [ ] **Calls, returns & recursion** (folded in from the old Stage 6 — needed by `test5`–`test8` and any
-      recursive program). Keep an activation `stack<Frame> callStack;`. `PARAM` stashes the next argument;
-      `CALL` builds a fresh callee `Frame` (its own `locals` — this is what makes recursion automatic), binds
-      the collected args **positionally** to `callee.m->params` (decision #7: this list already ends in
-      `this` for class methods, so `this` needs no special case), pushes the caller, and switches frames;
-      `RETURN` restores the caller and leaves the result on the data stack:
+- [ ] **Booleans** `AND OR NOT` (`AND`/`OR` binary, `NOT` unary — read the `.b` field):
 
       ```cpp
-      else if (op=="PARAM")  { args.push_back(pop()); fr.pc++; }        // collect call args, in order
-      else if (op=="CALL")   {                                         // in.args = { bare method name, argc }
+      else if (op=="AND") { Value a=pop(), b=pop(); ds.push(makeBool(b.b && a.b)); fr.pc++; }
+      else if (op=="OR")  { Value a=pop(), b=pop(); ds.push(makeBool(b.b || a.b)); fr.pc++; }
+      else if (op=="NOT") { Value a=pop();          ds.push(makeBool(!a.b));       fr.pc++; }
+      ```
+- [ ] **`READ <type>`** (test3 starts with `read(n)`; the next `STORE` drains it into the local):
+
+      ```cpp
+      else if (op=="READ") {
+          string tok; cin >> tok;                                   // one whitespace-separated token
+          string type = in.args.empty() ? "int" : in.args[0];       // Stage 3.5 step 6 put the type here
+          if      (type=="float")   { Value v; v.tag=Value::FLOAT; v.f=stod(tok); ds.push(v); }
+          else if (type=="boolean") { ds.push(makeBool(tok=="true")); }
+          else                      { ds.push(makeInt(stol(tok))); }
+          fr.pc++;
+      }
+      ```
+- [ ] **Fix `RETURN`** (see M1's ⚠ note): change the M1 no-op `fr.pc++` to `break`, or test4 loops forever.
+- [ ] **Verify:** `./compiler test_files/valid/test3.cpm && make interpreter && echo 5 | ./interpreter bytecode.txt`
+      → **`120`** (test3 = `1*2*3*4*5`). Then test4: `./compiler test_files/valid/test4.cpm && echo 12 |
+      ./interpreter bytecode.txt` → the divisors of 12, each followed by 12: `2 12 3 12 4 12 6 12 12 12`
+      (then it stops — if it doesn't, `RETURN` is still falling through).
+
+---
+
+#### M3 — calls, returns, recursion ✅ DONE (test6 fib 1..16 verified)
+
+Adds two pieces of state at the top of `run()`: `stack<Frame> callStack;` and `vector<Value> args;` (a side
+buffer for the current call's arguments). Three opcodes cooperate; Stage 4 emits a call as
+`PARAM … PARAM … CALL name argc`, with the receiver (`this`) as the **last** `PARAM` (decision #7).
+
+- [ ] **`PARAM` / `CALL` / `RETURN`** — and replace M1's no-op `RETURN` with this real one:
+
+      ```cpp
+      else if (op=="PARAM") { args.push_back(pop()); fr.pc++; }      // collect args, left-to-right
+      else if (op=="CALL")  {                                        // in.args = { method name, argc }
           int argc = stoi(in.args[1]);
-          Value& self = args.back();                                   // the trailing `this` (decision #7)
-          Method* callee = &methods[self.obj->cls + "::" + in.args[0]];// resolve by the receiver's class
-          Frame f{ callee, 0, {} };
-          for (int k=0; k<argc; ++k) f.locals[callee->params[k]] = args[args.size()-argc+k]; // positional
-          args.clear();                                                // strict nesting ⇒ one args buffer is enough
-          callStack.push(fr); fr = f;                                  // switch to the new frame
+          Value& self = args.back();                                 // trailing `this`
+          Method* callee = &methods[self.obj->cls + "::" + in.args[0]];   // dispatch on receiver's class
+          Frame f{ callee, 0, {} };                                  // fresh locals = recursion works
+          for (int k=0; k<argc; ++k)                                 // bind positionally onto params
+              f.locals[callee->params[k]] = args[args.size()-argc+k];
+          args.clear();
+          callStack.push(fr); fr = f;                                // suspend caller, switch to callee (pc=0)
       }
       else if (op=="RETURN") {
-          Value rv = ds.empty() ? Value{} : pop();
-          if (callStack.empty()) break;                                // RETURN from main → stop
-          fr = callStack.top(); callStack.pop(); ds.push(rv); fr.pc++; // resume caller, result on stack
+          Value rv = ds.empty() ? Value{} : pop();                   // the return value
+          if (callStack.empty()) break;                              // RETURN from main -> stop
+          fr = callStack.top(); callStack.pop();                     // resume caller
+          ds.push(rv); fr.pc++;                                      // leave result for caller's STORE
       }
       ```
-      Two invariants this relies on (keep them true): **(1)** each method body is *stack-balanced* and
-      `RETURN` leaves exactly one value, so the shared data stack `ds` is undisturbed across a call (the
-      caller's in-progress operands sit safely below the callee's frame). **(2)** Dispatch is by the
-      already-qualified name in `in.args[0]` — no runtime class lookup (decision #7). For multi-pop ops,
-      **pop in reverse of push**: e.g. `ARRAY_STORE` reads `value=pop(); idx=pop(); arr=pop()` and binary ops
-      read `b=pop(); a=pop()` so `a op b` matches the load order. `POW` on two `INT`s uses integer power
-      (test1's `2 ^ (4*2)` stays `int`); a float operand promotes (§1.6, same rule as `DIV`).
-      *(Parameter names are the `params` line each method carries — emitted by Stage 4 from `MethodIR::params`
-      (Stage 3.5 step 1) in binding order `[declared params…, this]`, recorded by the loader above.)*
-- [ ] **Arrays & objects** (heap values, also from the old Stage 6): `NEW_ARRAY` pops a size and pushes an
-      `ARRAY` Value; `ARRAY_LOAD` (`idx=pop(); arr=pop()`) / `ARRAY_STORE` (`value=pop(); idx=pop(); arr=pop()`)
-      index it; `ARRAY_LEN` pushes its size. `NEW_OBJECT <C>` pushes an `OBJ` Value whose
-      `obj = make_shared<Obj>()` with `obj->cls = C` (the class tag that `CALL` dispatches on, decision #7) —
-      no constructor runs, fields start absent (a later `GET_FIELD` of an unset field yields a default
-      `Value{}`). `GET_FIELD <f>` pops the receiver and pushes `obj->fields[f]`; `SET_FIELD <f>` pops `value`
-      then the receiver and writes `obj->fields[f]=value` (match Stage 4's emit order). The `shared_ptr<Obj>`
-      gives reference semantics for free — so `c.inc()` mutating `this`'s `value` is visible to `c.get()`.
-- [ ] **`READ <type>`:** read one whitespace-delimited token from stdin and push it as the declared type —
-      `int`→`mkInt(stol(tok))`, `float`→a `FLOAT` Value via `stod(tok)`, `boolean`→`mkBool(tok=="true")`
-      (Stage 3.5 step 6 puts the type on the instruction). The following `STORE` writes it into the target.
-- [ ] **`main(argc,argv)`:** `if (argc<2) …usage…;` open `argv[1]`, check the header line equals your magic
-      string, load into `methods`, then run from `methods["main"]` as above.
-- [ ] Add an optional **trace mode** (e.g. `--trace`): before each dispatch, print `pc`, the opcode, and
-      the data-stack depth + current locals. Invaluable when output is wrong and you need to see where.
-- [ ] **Verify full pipeline:**
+      Why it works: each `CALL` gets a brand-new `Frame`, so several live activations of one method are just
+      several frames with their own `locals` — nothing special for recursion. The callee leaves exactly one
+      value on the shared `ds`; the caller's operands sit safely below it. Dispatch is by `self.obj->cls`
+      (the class tag `NEW_OBJECT` set), which is why any receiver shape works (decision #7). The `params` each
+      method carries (loader reads the `params` line) end in `this`, so the receiver binds with no special case.
+
+      ```text
+      callStack (bottom -> top)     fact(3):
+      [main]                        call fact(3) -> needs 3 * fact(2)
+      [main, fact n=3]              call fact(2) -> needs 2 * fact(1)
+      [main, fact n=3, fact n=2]    fact(1): base case, push 1, RETURN
+      [main, fact n=3]              ds:[1]; 2*1=2, RETURN
+      [main]                        ds:[2]; 3*2=6, RETURN
+      [main]                        ds:[6] left for main
+      ```
+> ⚠ **M3 can't be verified without `NEW_OBJECT` (an M4 opcode).** In C+- there are no free functions — every
+> method lives in a class, so every `CALL` dispatches on an object's `cls` tag, and that tag is set by
+> `NEW_OBJECT`. So construct-then-call is the minimum: add the `NEW_OBJECT` branch (M4) *now* to test any call.
+> test6 (recursive `fib`) needs **only** `NEW_OBJECT` on top of M3 — no fields, no arrays — so it's the right
+> first verification.
+
+- [X] **`PARAM`/`CALL`/`RETURN` + `NEW_OBJECT`** — implemented and compiles (one bracket-placement bug fixed
+      during bring-up: `f.locals[callee->params[k]] = args[…]`, not `f.locals[callee->params[k] = args[…]]`).
+- [X] **Verify recursion (test6):** ✅ `./interpreter bytecode.txt` printed
+      `1 1 2 3 5 8 13 21 34 55 89 144 233 377 610 987` (fib 1..16) — recursion, fresh frames, and `NEW_OBJECT`
+      dispatch all confirmed. test7/test8 also need the array + field ops below (M4).
+
+---
+
+#### M4 — heap: fields & arrays ✅ DONE (test5/test7/test8 all verified)
+
+`NEW_OBJECT` was already done (M3). M4 added **fields** (`GET_FIELD`/`SET_FIELD`) and **arrays**
+(`NEW_ARRAY`/`ARRAY_LOAD`/`ARRAY_STORE`/`ARRAY_LEN`). Multi-pop ops pop in reverse of push order (the
+receiver/array is pushed first, so popped last).
+
+- [X] **Fields** (`GET_FIELD <f>` / `SET_FIELD <f>`). `shared_ptr<Obj>` gives reference semantics, so
+      `c.inc()` mutating a field is visible to a later `c.get()`. A `GET_FIELD` of a never-set field returns a
+      default `Value{}`.
+
+      ```cpp
+      else if (op=="GET_FIELD") { Value o=pop(); ds.push(o.obj->fields[in.args[0]]); fr.pc++; }
+      else if (op=="SET_FIELD") { Value val=pop(); Value o=pop();          // value pushed last -> popped first
+                                  o.obj->fields[in.args[0]] = val; fr.pc++; }
+      ```
+- [X] **Arrays** (`NEW_ARRAY` size on stack; `ARRAY_LOAD`/`ARRAY_STORE` take array+index; `ARRAY_LEN` the
+      array). ⚠ Bring-up bug: `NEW_ARRAY` must allocate into the **pushed** Value's `.arr`, not the popped
+      size's — `v.arr = make_shared<…>(n.i)`, not `n.arr = …` (the latter leaves the pushed array's `.arr`
+      null → segfault on first `ARRAY_LOAD`/`STORE`). Fixed.
+
+      ```cpp
+      else if (op=="NEW_ARRAY")  { Value n=pop(); Value v; v.tag=Value::ARRAY;
+                                   v.arr=make_shared<vector<Value>>(n.i); ds.push(v); fr.pc++; }
+      else if (op=="ARRAY_LOAD") { Value idx=pop(), arr=pop();             // idx pushed last
+                                   ds.push((*arr.arr)[idx.i]); fr.pc++; }
+      else if (op=="ARRAY_STORE"){ Value val=pop(), idx=pop(), arr=pop();  // value, then index, then array
+                                   (*arr.arr)[idx.i] = val; fr.pc++; }
+      else if (op=="ARRAY_LEN")  { Value arr=pop(); ds.push(makeInt(arr.arr->size())); fr.pc++; }
+      ```
+- [X] **Verify (the full language)** — all confirmed:
+      - **test8** → `14` then `5` ✅ (`sumArray([3,1,4,1,5])=14`; `Counter` incremented 5× via shared object).
+      - **test5** → `1 2 2.3 2.4 2.5 5 6 6 7 8 9 14 15 97` ✅ (bubble sort of the 14 floats).
+      - **test7** → `20 7 12 18 2 11 6 9 19 5 / 9999 / 2 5 12 18 20 11 6 9 19 7 / 0` ✅. NB the second line is
+        **not** fully sorted — `QS::Sort` does a *single* Hoare partition (no recursive `Sort` calls in the test
+        program), and a hand-trace of that one partition reproduces the output exactly. Confirms arrays, fields,
+        nested loops, `break`, and `!` all execute correctly.
+
+---
+
+#### Optional & final check
+
+- [ ] **Trace mode** (`--trace`): before each dispatch print `pc`, the opcode, `ds` depth, and `locals`.
+      Invaluable when M3 output is wrong.
+- [ ] **Verify full pipeline (the graded Option-1 minimum):**
       `make && ./compiler test_files/valid/test1.cpm && make interpreter && ./interpreter bytecode.txt`
-      → output matches the program's intent. **This is the graded Option-1 minimum.**
+      → matches the program's intent. ✅ Already passing for test1 (`508.5`).
 
 ### Stage 6 — *dissolved (was: "full language for higher grades")*
 
@@ -873,8 +1123,8 @@ moved into the stage that owns the relevant layer; nothing here is dropped:
 | `CallMethod` (both forms), arrays, `LengthOf` | **Stage 2** — ✅ done |
 | `Array` literal → `NEW_ARRAY` | **Stage 2** — ✅ done |
 | Classes/fields/methods + parameter binding + `this` | **Stages 2 & 3.5** — ✅ done |
-| Bytecode for `CALL`/`PARAM`/`NEW_OBJECT`/fields/arrays | **Stage 4** — to do |
-| Interpreter `CALL`/`RETURN`/recursion + heap arrays/objects | **Stage 5** — to do |
+| Bytecode for `CALL`/`PARAM`/`NEW_OBJECT`/fields/arrays | **Stage 4** — ✅ done |
+| Interpreter `CALL`/`RETURN`/recursion + heap arrays/objects | **Stage 5** — in progress (M1 underway; M3/M4 cover this) |
 
 **Verify the full language** (the old Stage-6 acceptance test, still required): run `test5`–`test8`
 ([test_files/valid/test5.cpm](test_files/valid/test5.cpm)–[test8.cpm](test_files/valid/test8.cpm)) and a

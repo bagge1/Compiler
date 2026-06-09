@@ -84,6 +84,7 @@ int main(int argc, char **argv)
 				ir.generate_ir(root);
 				ir.printTAC();
 				ir.writeCFG();
+				ir.generateByteCode();
 			}
 			catch (...)
 			{
