@@ -321,3 +321,26 @@ ARRAY_STORE ARRAY_LEN`
 
 Each is mapped to its stack-opcode sequence by `emitByteCode` (binary ops use the default
 "push arg1, push arg2, op, STORE result" path).
+
+
+| Opcode | Operands | Effect |
+|---|---|---|
+| `PUSH_INT` / `PUSH_FLOAT` / `PUSH_BOOL` | literal | push a constant |
+| `LOAD` | name | push the value of a local/param |
+| `STORE` | name | pop and store into a local |
+| `ADD` `SUB` `MUL` `DIV` `POW` | — | pop 2, push result |
+| `AND` `OR` `NOT` | — | boolean ops |
+| `LT` `GT` `LEQ` `GEQ` `EQ` `NE` | — | pop 2, push bool |
+| `JMP` | label | set pc to label |
+| `JMP_FALSE` | label | pop; if false, set pc to label |
+| `PARAM` | — | mark top of stack as the next call argument |
+| `CALL` | name, argc | call method; resolved at run time as `(receiver's class)::name`, receiver is the trailing arg (decision #7) |
+| `NEW_OBJECT` | className | construct (tag object with its class), push reference |
+| `GET_FIELD` / `SET_FIELD` | fieldName | object field read/write |
+| `NEW_ARRAY` | — / size | allocate array, push reference |
+| `ARRAY_LOAD` / `ARRAY_STORE` | — | indexed read/write (array + index on stack) |
+| `ARRAY_LEN` | — | push array length |
+| `PRINT` | — | print top of stack |
+| `READ` | type | read a token from stdin as `type` (int/float/boolean), push it |
+| `RETURN` | — | pop frame, push return value into caller |
+| `HALT` | — | stop (end of `main`) |
