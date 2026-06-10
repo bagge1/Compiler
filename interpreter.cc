@@ -68,6 +68,12 @@ static void printValue(const Value& v)
 	else cout << v.i << "\n";
 }
 
+Value popValue(stack<Value>& ds){
+	Value v = ds.top();
+	ds.pop();
+	return v;
+}
+
 void load(const string& path, map<string, Method>& methods)
 {
 	ifstream in(path);
@@ -125,7 +131,6 @@ void run(map<string, Method>& methods)
 {
 	stack<Value> ds;
 	Frame fr = {&methods["main"], 0, {}};
-	auto pop = [&]() {Value v = ds.top(); ds.pop(); return v;};
 	stack<Frame> callStack;
 	vector<Value> args;
 	
@@ -153,63 +158,63 @@ void run(map<string, Method>& methods)
 			fr.pc++;
 		}
 		else if ( op == "STORE"){
-			fr.locals[in.args[0]] = pop();
+			fr.locals[in.args[0]] = popValue(ds);
 			fr.pc++;
 		}
 		else if (op == "MUL"){
-			Value a=pop(), b=pop();
+			Value a=popValue(ds), b=popValue(ds);
 			ds.push(numOp(b,a,'*'));
 			fr.pc++;
 		}
 		else if (op == "DIV"){
-			Value a=pop(), b=pop();
+			Value a=popValue(ds), b=popValue(ds);
 			ds.push(numOp(b,a,'/'));
 			fr.pc++;
 		}
 		else if (op == "ADD"){
-			Value a=pop(), b=pop();
+			Value a=popValue(ds), b=popValue(ds);
 			ds.push(numOp(b,a,'+'));
 			fr.pc++;
 		}
 		else if (op == "SUB"){
-			Value a=pop(), b=pop();
+			Value a=popValue(ds), b=popValue(ds);
 			ds.push(numOp(b,a,'-'));
 			fr.pc++;
 		}
 		else if (op == "POW"){
-			Value a=pop(), b=pop();
+			Value a=popValue(ds), b=popValue(ds);
 			ds.push(numOp(b,a,'^'));
 			fr.pc++;
 		}
 		else if (op == "PRINT"){
-			printValue(pop());
+			printValue(popValue(ds));
 			fr.pc++;
 		} 
 		else if (op == "JMP"){
 			fr.pc = fr.m->labels[in.args[0]];
 		}
 		else if (op == "JMP_FALSE"){
-			Value cond = pop();
+			Value cond = popValue(ds);
 			if (!cond.b) fr.pc = fr.m->labels[in.args[0]];
 			else fr.pc++;
 		}
 		else if (op == "LT" || op == "GT" || op == "LEQ" || op == "GEQ" || op == "EQ" || op == "NE"){
-			Value a=pop(), b=pop();
+			Value a=popValue(ds), b=popValue(ds);
 			ds.push(cmpOp(b, a, op));
 			fr.pc++;
 		} 
 		else if (op == "AND"){
-			Value a=pop(), b=pop();
+			Value a=popValue(ds), b=popValue(ds);
 			ds.push(makeBool(b.b && a.b));
 			fr.pc++;
 		} 
 		else if (op == "OR"){
-			Value a=pop(), b=pop();
+			Value a=popValue(ds), b=popValue(ds);
 			ds.push(makeBool(b.b || a.b));
 			fr.pc++;
 		}
 		else if (op == "NOT"){
-			Value a=pop();
+			Value a=popValue(ds);
 			ds.push(makeBool(!a.b));
 			fr.pc++;
 		}
@@ -228,7 +233,7 @@ void run(map<string, Method>& methods)
 			fr.pc++;
 		}
 		else if (op == "PARAM"){
-			args.push_back(pop());
+			args.push_back(popValue(ds));
 			fr.pc++;
 		}
 		else if (op == "CALL"){
@@ -237,7 +242,7 @@ void run(map<string, Method>& methods)
 			Method* callee = &methods[self.obj->cls + "::" + in.args[0]];
 			Frame f{callee, 0, {}};
 			for (int k = 0; k < argc; ++k){
-				f.locals[callee->params[k]] = args[args.size() - argc+k];
+				f.locals[callee->params[k]] = args[k];
 			}
 			args.clear();
 			callStack.push(fr);
@@ -252,18 +257,18 @@ void run(map<string, Method>& methods)
 			fr.pc++;
 		}
 		else if(op == "GET_FIELD"){
-			Value o=pop();
+			Value o=popValue(ds);
 			ds.push(o.obj->fields[in.args[0]]);
 			fr.pc++;
 		}
 		else if (op == "SET_FIELD"){
-			Value val=pop();
-			Value o=pop();
+			Value val=popValue(ds);
+			Value o=popValue(ds);
 			o.obj->fields[in.args[0]] = val;
 			fr.pc++;
 		}
 		else if(op == "NEW_ARRAY"){
-			Value size=pop();
+			Value size=popValue(ds);
 			Value v;
 			v.tag=Value::ARRAY;
 			v.arr=make_shared<vector<Value>>(size.i);
@@ -271,22 +276,22 @@ void run(map<string, Method>& methods)
 			fr.pc++;
 		}
 		else if (op == "ARRAY_LOAD"){
-			Value idx=pop(), arr=pop();
+			Value idx=popValue(ds), arr=popValue(ds);
 			ds.push((*arr.arr)[idx.i]);
 			fr.pc++;
 		}
 		else if (op == "ARRAY_STORE"){
-			Value val=pop(), idx=pop(), arr=pop();
+			Value val=popValue(ds), idx=popValue(ds), arr=popValue(ds);
 			(*arr.arr)[idx.i] = val;
 			fr.pc++;
 		}
 		else if (op == "ARRAY_LEN"){
-			Value arr=pop();
+			Value arr=popValue(ds);
 			ds.push(makeInt(arr.arr->size()));
 			fr.pc++;
 		}
 		else if (op == "RETURN"){
-			Value rv = ds.empty() ? Value{} : pop();
+			Value rv = ds.empty() ? Value{} : popValue(ds);
 			if (callStack.empty()){
 				break;
 			}

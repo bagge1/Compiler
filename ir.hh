@@ -32,10 +32,6 @@ struct MethodIR{
 	vector<BasicBlock*> basicBlocks;
 };
 
-class ByteCode{
-
-};
-
 class IntermediateRepresentation{
 	private:
 		int tempCounter = 0;
@@ -55,7 +51,7 @@ class IntermediateRepresentation{
 
 		// helper functions
 		string newTemp();		// returns t0, t1, t2, ...
-		string newLabel();		// returns L0, L1, L2, ...
+		string newLabel();		// returns 0, 1, 2, ...
 		bool isTerminated(BasicBlock* block);
 
 		// functions

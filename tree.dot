@@ -1,0 +1,77 @@
+digraph {
+n0 [label="Program:"];
+n1 [label="Main method:"];
+n2 [label="StatementBlock:"];
+n3 [label="VolatileVariable:n"];
+n4 [label="IntType:int"];
+n3 -> n4
+n2 -> n3
+n5 [label="Read:"];
+n6 [label="ID:n"];
+n5 -> n6
+n2 -> n5
+n7 [label="AssignVolatileVariable:x"];
+n8 [label="IntType:int"];
+n7 -> n8
+n9 [label="int:1"];
+n7 -> n9
+n2 -> n7
+n10 [label="AssignVolatileVariable:i"];
+n11 [label="IntType:int"];
+n10 -> n11
+n12 [label="int:2"];
+n10 -> n12
+n2 -> n10
+n13 [label="ForStatement:"];
+n14 [label="Initialization:"];
+n15 [label="Assign:"];
+n16 [label="ID:i"];
+n15 -> n16
+n17 [label="int:2"];
+n15 -> n17
+n14 -> n15
+n13 -> n14
+n18 [label="Condition:"];
+n19 [label="LessOrEqual:<="];
+n20 [label="ID:i"];
+n19 -> n20
+n21 [label="ID:n"];
+n19 -> n21
+n18 -> n19
+n13 -> n18
+n22 [label="Update:"];
+n23 [label="Assign:"];
+n24 [label="ID:i"];
+n23 -> n24
+n25 [label="Addition:+"];
+n26 [label="ID:i"];
+n25 -> n26
+n27 [label="int:1"];
+n25 -> n27
+n23 -> n25
+n22 -> n23
+n13 -> n22
+n28 [label="LoopBody:"];
+n29 [label="Assign:"];
+n30 [label="ID:x"];
+n29 -> n30
+n31 [label="Multiplication:*"];
+n32 [label="ID:x"];
+n31 -> n32
+n33 [label="ID:i"];
+n31 -> n33
+n29 -> n31
+n28 -> n29
+n13 -> n28
+n2 -> n13
+n34 [label="Print:"];
+n35 [label="ID:x"];
+n34 -> n35
+n2 -> n34
+n36 [label="Return:"];
+n37 [label="int:0"];
+n36 -> n37
+n2 -> n36
+n1 -> n2
+n0 -> n1
+}

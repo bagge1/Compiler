@@ -1,0 +1,11 @@
+digraph CFG {
+ node [shape=box]; 
+ BB0 [label="BB0:\nREAD n int\nASSIGN 1  -> x\nASSIGN 2  -> i\nASSIGN 2  -> i\nGOTO   -> BB1\n"];
+ BB0->BB1;
+ BB1 [label="BB1:\nLEQ i n -> t0\nIF_FALSE t0  -> BB3\nGOTO   -> BB2\n"];
+ BB1->BB2;
+ BB1->BB3;
+ BB2 [label="BB2:\nMUL x i -> t1\nASSIGN t1  -> x\nADD i 1 -> t2\nASSIGN t2  -> i\nGOTO   -> BB1\n"];
+ BB2->BB1;
+ BB3 [label="BB3:\nPRINT x \nRETURN 0 \n"];
+}
